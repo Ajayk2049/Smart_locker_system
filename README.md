@@ -6,8 +6,9 @@ A full-stack IoT ecosystem for a secure parcel box with push-to-lock mechanism.
 
 ```mermaid
 graph TD
-    subgraph Vercel [Vercel Cloud - Frontend]
-        Web[Next.js App Router<br/>(Landing + Admin)]
+    subgraph Vercel [Vercel Cloud - Frontends]
+        Landing[Next.js Landing Page]
+        Admin[Next.js Admin Dashboard]
     end
 
     subgraph Mobile [User Device]
@@ -27,7 +28,8 @@ graph TD
         Sensor[Reed Switch<br/>Door State]
     end
 
-    Web -- "HTTPS (REST)" --> API
+    Landing -- "HTTPS (REST)" --> API
+    Admin -- "HTTPS (REST)" --> API
     Flutter -- "WebSocket (Bidirectional)" --> WS
     Flutter -- "HTTPS (REST)" --> API
     
@@ -62,13 +64,12 @@ graph TD
 - **Validation**: Zod
 - **Email**: Resend
 
-### Frontend
-- **Framework**: Next.js 14+ (App Router)
-- **UI**: shadcn/ui + Tailwind CSS
-- **Styling/Post-processing**: PostCSS + Autoprefixer
-- **State**: Redux Toolkit
+### Frontend (Landing & Admin)
+- **Framework**: Next.js 16.2+ (App Router)
+- **UI**: Tailwind CSS v4 + Lucide Icons
+- **Post-processing**: PostCSS
+- **State**: React State (Landing) / Redux Toolkit (Admin)
 - **HTTP**: Axios
-
 
 ### Mobile
 - **Framework**: Flutter (Dart)
@@ -82,7 +83,8 @@ graph TD
 ```
 Smart_locker/
 ├── backend/          # Fastify REST API + WebSocket + MQTT
-├── frontend/         # Next.js + shadcn Admin Dashboard
+├── landing/          # Next.js Landing Page (Marketing + Authentication)
+├── admin/            # Next.js Admin Dashboard (IoT device manager)
 ├── mobile-app/       # Flutter MVVM Mobile App
 ├── .gitignore
 ├── progress.md
@@ -102,9 +104,16 @@ npm install
 npm run dev    # Uses .env.dev
 ```
 
-### Frontend
+### Landing Page
 ```bash
-cd frontend
+cd landing
+npm install
+npm run dev    # Uses .env.dev
+```
+
+### Admin Dashboard
+```bash
+cd admin
 npm install
 npm run dev    # Uses .env.dev
 ```
