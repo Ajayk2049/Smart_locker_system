@@ -1,0 +1,30 @@
+{
+  "name": "smartbox-backend",
+  "version": "1.0.0",
+  "description": "Smart Delivery Box Backend API",
+  "main": "dist/app.js",
+  "scripts": {
+    "dev": "env-cmd -f .env.dev nodemon --watch src -e ts --exec tsx src/app.ts",
+    "build": "env-cmd -f .env.prod tsc",
+    "start": "env-cmd -f .env.prod node dist/app.js",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.1",
+    "@fastify/jwt": "^10.1.0",
+    "@fastify/websocket": "^11.0.1",
+    "fastify": "^5.2.1",
+    "mongoose": "^8.9.5",
+    "mqtt": "^5.10.4",
+    "resend": "^4.1.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "env-cmd": "^10.1.0",
+    "nodemon": "^3.1.14",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

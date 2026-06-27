@@ -1,0 +1,31 @@
+# Handle line endings automatically for files detected as text
+# and leave binary files untouched.
+* text=auto
+
+# Declare files that will always have LF line endings on checkout.
+# This ensures scripts work on Linux/Unix/macOS systems.
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Explicitly declare text files to be normalized and converted to LF on commit
+*.js text
+*.jsx text
+*.ts text
+*.tsx text
+*.json text
+*.css text
+*.html text
+*.md text
+*.yaml text
+*.yml text
+
+# Denote binary files (do not normalize line endings)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary

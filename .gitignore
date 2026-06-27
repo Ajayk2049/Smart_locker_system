@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.dev
+.env.prod
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Flutter
+/mobile-app/.dart_tool/
+/mobile-app/.packages
+/mobile-app/build/
+/mobile-app/.flutter-plugins
+/mobile-app/.flutter-plugins-dependencies
+/mobile-app/pubspec.lock
+
+# Temporary
+*.tmp
+scratch/
+temp/
+tests/mocks/
+mock/
+# Coverage
+coverage/
+.nyc_output/
+
+# Misc
+*.tsbuildinfo
+progress.md
+
+# Markdown Files (Except README.md)
+**/*.md
+!**/README.md
+
+
