@@ -8,10 +8,9 @@ import { BoxBgHorizontal } from "@/components/box-bg-horizontal";
 import { ProfileBoxBg } from "@/components/profile-box-bg";
 import { Features } from "@/components/features";
 import { HowItWorks } from "@/components/how-it-works";
-import { AppPromo } from "@/components/app-promo";
 import { Profile } from "@/components/profile";
 
-type ViewState = "home" | "features" | "how-it-works" | "app" | "profile";
+type ViewState = "home" | "features" | "how-it-works" | "profile";
 
 const ANIMATION_STYLES = [
   "slide-right",
@@ -94,7 +93,7 @@ export default function Home() {
       }}
     >
       <div className="relative z-10 w-full min-h-screen md:h-full flex flex-col justify-between p-4 md:p-[4vh]">
-        {/* Header section containing logo and features */}
+        {/* Header section containing logo and navigation links */}
         <header className="w-full flex flex-col md:flex-row items-center md:justify-start gap-4 md:gap-[8vh] pb-4 md:pb-0">
           {/* Logo Container */}
           <div 
@@ -102,7 +101,7 @@ export default function Home() {
             className="flex items-center gap-[2vh] text-[#3D2310] cursor-pointer font-merriweather hover:scale-102 transition-transform duration-200 group"
           >
             <Package className="w-[5vh] h-[5vh] md:w-[6vh] md:h-[6vh] stroke-[2.2]" />
-            <span className="font-black text-3xl md:text-[5vh] tracking-tight">Smart Box</span>
+            <span className="font-black text-3xl md:text-[5vh] tracking-tight">Secure Box</span>
           </div>
 
           {/* Navigation Links */}
@@ -120,6 +119,7 @@ export default function Home() {
                 view === "features" ? "w-full" : "w-0 group-hover:w-full"
               }`} />
             </a>
+
             <a
               href="#how-it-works"
               onClick={(e) => {
@@ -133,19 +133,7 @@ export default function Home() {
                 view === "how-it-works" ? "w-full" : "w-0 group-hover:w-full"
               }`} />
             </a>
-            <a
-              href="#app"
-              onClick={(e) => {
-                e.preventDefault();
-                transitionTo("app");
-              }}
-              className="relative py-[0.5vh] text-base md:text-[2.6vh] font-black text-[#3D2310] transition-colors duration-200 group"
-            >
-              App
-              <span className={`absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] bg-[#3D2310] rounded-full transition-all duration-350 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] ${
-                view === "app" ? "w-full" : "w-0 group-hover:w-full"
-              }`} />
-            </a>
+
             <a
               href="#profile"
               onClick={(e) => {
@@ -176,6 +164,7 @@ export default function Home() {
             <Hero 
               onExploreFeatures={() => transitionTo("features")}
               onHowItWorks={() => transitionTo("how-it-works")}
+              onOrderNow={() => transitionTo("profile")}
             />
           </div>
 
@@ -196,7 +185,6 @@ export default function Home() {
             ) : (
               <BoxBg>
                 {boxView === "features" && <Features />}
-                {boxView === "app" && <AppPromo />}
               </BoxBg>
             )}
           </div>
@@ -206,9 +194,3 @@ export default function Home() {
     </main>
   );
 }
-
-
-
-
-
-

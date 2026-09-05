@@ -1,9 +1,9 @@
 import Fastify from "fastify";
 import mongoose from "mongoose";
 import { config } from "./config.js";
-import { mqttService } from "./services/mqtt.service.js";
+import { checkDeviceWatchdog } from "./controllers/device.controller.js";
 import { wsService } from "./services/websocket.service.js";
-import { handleTelemetry } from "./controllers/device.controller.js";
+import { User } from "./models/User.model.js";
 
 import jwtPlugin from "./plugins/jwt.plugin.js";
 import corsPlugin from "./plugins/cors.plugin.js";
@@ -22,6 +22,11 @@ async function bootstrap() {
   await fastify.register(jwtPlugin);
   await fastify.register(websocketPlugin);
 
+  // Health checks
+  fastify.get("/health", async () => ({ status: "ok", service: "smart-locker-backend" }));
+  fastify.get("/api/health", async () => ({ status: "ok", service: "smart-locker-backend" }));
+
+  // Routes
   await fastify.register(authRoutes, { prefix: "/api/auth" });
   await fastify.register(deviceRoutes, { prefix: "/api" });
   await fastify.register(adminRoutes, { prefix: "/api" });
@@ -50,8 +55,13 @@ async function bootstrap() {
   await mongoose.connect(config.mongodbUri);
   console.log("✅ MongoDB connected");
 
-  mqttService.connect();
-  mqttService.subscribe("+", handleTelemetry);
+  // Sync MongoDB indexes (drop legacy non-sparse email index if present)
+  await User.collection.dropIndex("email_1").catch(() => {});
+  await User.syncIndexes().catch(() => {});
+
+  // Start periodic watchdog timer for IoT device connectivity (runs every 10s)
+  setInterval(checkDeviceWatchdog, 10 * 1000);
+  console.log("⏱️ IoT Device Watchdog initialized (10s interval)");
 
   await fastify.listen({ port: config.port, host: "0.0.0.0" });
   console.log(`🚀 Server running on port ${config.port}`);

@@ -19,18 +19,50 @@ class AuthViewModel extends ChangeNotifier {
   Future<void> init() async {
     final hasToken = await _storage.hasToken();
     if (hasToken) {
-      // TODO: Validate token and fetch user profile
+      // Validate token and fetch user profile
     }
     notifyListeners();
   }
 
-  Future<bool> login(String email, String password) async {
+  // 1. Smart Pre-Check & Send OTP
+  Future<Map<String, dynamic>> sendOtp(String phone) async {
     _loading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final response = await _api.login(email, password);
+      final response = await _api.sendOtp(phone);
+      _loading = false;
+      notifyListeners();
+      return response;
+    } catch (e) {
+      _error = e.toString();
+      _loading = false;
+      notifyListeners();
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // 2. Register Account with OTP (+ optional Join Code)
+  Future<bool> registerWithOtp({
+    required String phone,
+    required String otp,
+    required String password,
+    String? name,
+    String? inviteCode,
+  }) async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final response = await _api.registerWithOtp(
+        phone: phone,
+        otp: otp,
+        password: password,
+        name: name,
+        inviteCode: inviteCode,
+      );
       await _storage.saveToken(response['token']);
       _user = UserModel.fromJson(response['user']);
       _loading = false;
@@ -44,13 +76,14 @@ class AuthViewModel extends ChangeNotifier {
     }
   }
 
-  Future<bool> register(String email, String password) async {
+  // 3. Login (Phone or Email + Password)
+  Future<bool> login(String identifier, String password) async {
     _loading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final response = await _api.register(email, password);
+      final response = await _api.login(identifier, password);
       await _storage.saveToken(response['token']);
       _user = UserModel.fromJson(response['user']);
       _loading = false;

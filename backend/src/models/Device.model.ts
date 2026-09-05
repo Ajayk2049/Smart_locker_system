@@ -3,10 +3,15 @@ import mongoose, { Schema, Document } from "mongoose";
 export interface IDevice extends Document {
   deviceId: string;
   ownerId: mongoose.Types.ObjectId;
+  coOwners: mongoose.Types.ObjectId[];
+  allowedSlots: number;
   name: string;
   doorState: "open" | "closed";
-  battery: number;
   online: boolean;
+  lastHeartbeat?: Date;
+  deviceKey?: string;
+  inviteCode?: string;
+  inviteExpiresAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -24,6 +29,18 @@ const deviceSchema = new Schema<IDevice>(
       ref: "User",
       required: true,
     },
+    coOwners: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    allowedSlots: {
+      type: Number,
+      default: 2,
+      min: 2,
+      max: 5,
+    },
     name: {
       type: String,
       required: true,
@@ -34,15 +51,27 @@ const deviceSchema = new Schema<IDevice>(
       enum: ["open", "closed"],
       default: "closed",
     },
-    battery: {
-      type: Number,
-      default: 100,
-      min: 0,
-      max: 100,
-    },
     online: {
       type: Boolean,
       default: false,
+    },
+    lastHeartbeat: {
+      type: Date,
+      default: null,
+    },
+    deviceKey: {
+      type: String,
+      trim: true,
+    },
+    inviteCode: {
+      type: String,
+      trim: true,
+      sparse: true,
+      index: true,
+    },
+    inviteExpiresAt: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true }

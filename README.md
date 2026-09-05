@@ -1,6 +1,6 @@
-# Smart Delivery Box (Solenoid Push-to-Lock)
+# Secure Box (Solenoid Push-to-Lock)
 
-A full-stack IoT ecosystem for a secure parcel box with push-to-lock mechanism.
+A full-stack IoT ecosystem for a secure parcel box with push-to-lock mechanism and mobile OTP authentication.
 
 ## Architecture
 
@@ -18,12 +18,12 @@ graph TD
     subgraph VPS [VPS Server - Backend]
         API[Fastify REST API<br/>Node.js + Zod + JWT]
         WS[WebSocket Server<br/>Real-time Status]
+        Queue[In-Memory Command Queue<br/>Device Dispatch]
         DB[(MongoDB<br/>Users / Devices / Logs)]
-        MQTT[EMQX / Mosquitto<br/>MQTT Broker]
     end
 
     subgraph Hardware [Customer Premise]
-        ESP32[ESP32 Controller<br/>Wi-Fi + MQTT]
+        ESP32[ESP32 Controller<br/>Wi-Fi + HTTP Client]
         Lock[Solenoid Lock<br/>Power-to-Unlock Pulse]
         Sensor[Reed Switch<br/>Door State]
     end
@@ -34,10 +34,12 @@ graph TD
     Flutter -- "HTTPS (REST)" --> API
     
     API -- "Read/Write" --> DB
-    API -- "Publish Commands" --> MQTT
-    WS -- "Listen for Telemetry" --> MQTT
+    API -- "Enqueue Commands" --> Queue
+    ESP32 -- "GET /api/device/command (Poll)" --> API
+    ESP32 -- "POST /api/device/telemetry" --> API
+    ESP32 -- "POST /api/device/heartbeat" --> API
+    API -- "Broadcast Events" --> WS
     
-    MQTT -- "MQTT over Wi-Fi" --> ESP32
     ESP32 -- "3s Pulse (Unlock)" --> Lock
     Sensor -- "Digital Read" --> ESP32
 ```
@@ -45,12 +47,13 @@ graph TD
 ## Core Logic
 
 1. User taps "UNLOCK" in the app
-2. Backend publishes MQTT command to ESP32
-3. ESP32 fires 3-second pulse to solenoid (door pops open)
-4. Courier places parcel inside
-5. Courier physically pushes door shut (spring-loaded latch)
-6. Reed switch detects closure, ESP32 reports door state
-7. Backend logs delivery, pushes notification to user
+2. Backend enqueues unlock command for the device
+3. ESP32 polls command endpoint and receives unlock action
+4. ESP32 fires 3-second pulse to solenoid (door pops open)
+5. Courier places parcel inside
+6. Courier physically pushes door shut (spring-loaded latch)
+7. Reed switch detects closure, ESP32 posts telemetry event to `/api/device/telemetry`
+8. Backend logs delivery, pushes WebSocket notification to user, and sends delivery email
 
 ## Tech Stack
 
@@ -58,8 +61,8 @@ graph TD
 - **Runtime**: Node.js + TypeScript
 - **Framework**: Fastify
 - **Database**: MongoDB (Mongoose)
-- **Auth**: JWT (fastify-jwt)
-- **MQTT**: mqtt.js
+- **Auth**: JWT (fastify-jwt) + Google OAuth2
+- **IoT Communication**: Pure REST/HTTP
 - **WebSocket**: @fastify/websocket
 - **Validation**: Zod
 - **Email**: Resend

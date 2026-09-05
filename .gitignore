@@ -38,6 +38,7 @@ Thumbs.db
 
 # Temporary
 *.tmp
+test_*.cjs
 scratch/
 temp/
 tests/mocks/
@@ -50,8 +51,8 @@ coverage/
 *.tsbuildinfo
 progress.md
 
-# Markdown Files (Except README.md)
+# Markdown Files (Except README.md and firmware.md)
 **/*.md
 !**/README.md
-
+!**/firmware.md
 

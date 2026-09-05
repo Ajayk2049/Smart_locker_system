@@ -14,11 +14,11 @@ import 'views/home/history_screen.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   AppConfig.setEnvironment(isProd: false);
-  runApp(const SmartBoxApp());
+  runApp(const SecureBoxApp());
 }
 
-class SmartBoxApp extends StatelessWidget {
-  const SmartBoxApp({super.key});
+class SecureBoxApp extends StatelessWidget {
+  const SecureBoxApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -39,13 +39,13 @@ class SmartBoxApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => WebSocketViewModel()),
       ],
       child: MaterialApp(
-        title: 'SmartBox',
+        title: 'Secure Box',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           useMaterial3: true,
           colorScheme: colorScheme,
           textTheme: GoogleFonts.interTextTheme(),
-          cardTheme: CardTheme(
+          cardTheme: CardThemeData(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
@@ -57,7 +57,7 @@ class SmartBoxApp extends StatelessWidget {
           textTheme: GoogleFonts.interTextTheme(
             ThemeData(brightness: Brightness.dark).textTheme,
           ),
-          cardTheme: CardTheme(
+          cardTheme: CardThemeData(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),

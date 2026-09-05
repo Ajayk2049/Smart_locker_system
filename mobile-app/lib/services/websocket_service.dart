@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../config.dart';
 
@@ -23,7 +24,7 @@ class WebSocketService {
         _controller.add(Map<String, dynamic>.from(message));
       },
       onError: (error) {
-        print('WebSocket error: $error');
+        debugPrint('WebSocket error: $error');
         _reconnect();
       },
       onDone: () {

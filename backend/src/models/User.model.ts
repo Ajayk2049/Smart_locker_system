@@ -1,32 +1,82 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IUser extends Document {
-  email: string;
+  phone?: string;
+  email?: string;
+  name?: string;
   password: string;
   role: "user" | "admin";
+  isPhoneVerified: boolean;
+  isDemo: boolean;
+  address?: string;
+  pincode?: string;
+  units?: number;
+  orderStatus?: "pending" | "approved" | "rejected";
+  assignedDevices?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
 
 const userSchema = new Schema<IUser>(
   {
+    phone: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+    },
     email: {
       type: String,
-      required: true,
       unique: true,
+      sparse: true,
       lowercase: true,
+      trim: true,
+    },
+    name: {
+      type: String,
       trim: true,
     },
     password: {
       type: String,
       required: true,
-      minlength: 8,
+      minlength: 6,
     },
     role: {
       type: String,
       enum: ["user", "admin"],
       default: "user",
     },
+    isPhoneVerified: {
+      type: Boolean,
+      default: false,
+    },
+    isDemo: {
+      type: Boolean,
+      default: false,
+    },
+    address: {
+      type: String,
+      trim: true,
+    },
+    pincode: {
+      type: String,
+      trim: true,
+    },
+    units: {
+      type: Number,
+      default: 1,
+    },
+    orderStatus: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+    },
+    assignedDevices: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
   },
   { timestamps: true }
 );

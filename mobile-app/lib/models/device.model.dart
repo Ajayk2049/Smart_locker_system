@@ -3,7 +3,6 @@ class DeviceModel {
   final String deviceId;
   final String name;
   final String doorState;
-  final int battery;
   final bool online;
 
   DeviceModel({
@@ -11,7 +10,6 @@ class DeviceModel {
     required this.deviceId,
     required this.name,
     required this.doorState,
-    required this.battery,
     required this.online,
   });
 
@@ -21,7 +19,6 @@ class DeviceModel {
       deviceId: json['deviceId'] ?? '',
       name: json['name'] ?? '',
       doorState: json['doorState'] ?? 'closed',
-      battery: json['battery'] ?? 100,
       online: json['online'] ?? false,
     );
   }
@@ -32,7 +29,6 @@ class DeviceModel {
       'deviceId': deviceId,
       'name': name,
       'doorState': doorState,
-      'battery': battery,
       'online': online,
     };
   }

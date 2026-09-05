@@ -19,8 +19,8 @@ const merriweather = Merriweather({
 });
 
 export const metadata: Metadata = {
-  title: "Smart Locker - Smart. Secure. Delivered.",
-  description: "Premium wall-mounted smart delivery locker for secure residential parcel delivery.",
+  title: "Secure Box - Smart. Secure. Delivered.",
+  description: "Premium wall-mounted parcel delivery box for secure residential contactless delivery.",
 };
 
 export default function RootLayout({

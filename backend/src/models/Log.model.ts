@@ -1,8 +1,19 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface ILog extends Document {
-  deviceId: mongoose.Types.ObjectId;
-  action: "unlock" | "door_open" | "door_close" | "delivery_success";
+  deviceId?: mongoose.Types.ObjectId;
+  action:
+    | "unlock"
+    | "door_open"
+    | "door_close"
+    | "delivery_success"
+    | "co_owner_added"
+    | "co_owner_removed"
+    | "admin_slot_update"
+    | "order_requested"
+    | "order_approved"
+    | "order_rejected"
+    | "user_signup";
   timestamp: Date;
   metadata?: Record<string, unknown>;
 }
@@ -12,11 +23,10 @@ const logSchema = new Schema<ILog>(
     deviceId: {
       type: Schema.Types.ObjectId,
       ref: "Device",
-      required: true,
+      required: false,
     },
     action: {
       type: String,
-      enum: ["unlock", "door_open", "door_close", "delivery_success"],
       required: true,
     },
     timestamp: {

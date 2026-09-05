@@ -27,7 +27,7 @@ export function HowItWorks() {
         <div className="bg-transparent rounded-xl p-1  flex flex-col items-center text-center justify-center rotate-[-1deg] hover:rotate-0 hover:scale-102 transition-transform duration-200">
           <Unlock className="w-[3.5vh] h-[3.5vh] text-[#3D2310] mb-1.5" />
           <h4 className="font-extrabold text-[1.1vh] md:text-[1.4vh] mb-0.5 uppercase">Door Unlock</h4>
-          <p className="text-[1.3vh] md:text-[1.7vh] text-[#3D2310]/80 leading-snug">You Unlock The SmartBox With Your Phone.</p>
+          <p className="text-[1.3vh] md:text-[1.7vh] text-[#3D2310]/80 leading-snug">You Unlock The Secure Box With Your Phone.</p>
         </div>
 
         {/* Step 4 */}

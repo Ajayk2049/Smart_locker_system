@@ -27,22 +27,49 @@ class ApiService {
     return dio;
   }
 
-  Future<Map<String, dynamic>> login(String email, String password) async {
+  // 1. Smart Pre-Check & Send OTP
+  Future<Map<String, dynamic>> sendOtp(String phone) async {
+    try {
+      final response = await _dio.post('/api/auth/send-otp', data: {
+        'phone': phone,
+      });
+      return response.data;
+    } on DioException catch (e) {
+      if (e.response != null && e.response!.data is Map) {
+        return Map<String, dynamic>.from(e.response!.data);
+      }
+      rethrow;
+    }
+  }
+
+  // 2. Register with OTP (+ optional Join Code)
+  Future<Map<String, dynamic>> registerWithOtp({
+    required String phone,
+    required String otp,
+    required String password,
+    String? name,
+    String? inviteCode,
+  }) async {
+    final response = await _dio.post('/api/auth/register-with-otp', data: {
+      'phone': phone,
+      'otp': otp,
+      'password': password,
+      if (name != null && name.isNotEmpty) 'name': name,
+      if (inviteCode != null && inviteCode.isNotEmpty) 'inviteCode': inviteCode,
+    });
+    return response.data;
+  }
+
+  // 3. Login (Phone or Email + Password)
+  Future<Map<String, dynamic>> login(String identifier, String password) async {
     final response = await _dio.post('/api/auth/login', data: {
-      'email': email,
+      'identifier': identifier,
       'password': password,
     });
     return response.data;
   }
 
-  Future<Map<String, dynamic>> register(String email, String password) async {
-    final response = await _dio.post('/api/auth/register', data: {
-      'email': email,
-      'password': password,
-    });
-    return response.data;
-  }
-
+  // 4. Device Management
   Future<List<dynamic>> getDevices() async {
     final dio = await authDio;
     final response = await dio.get('/api/devices');
@@ -58,5 +85,26 @@ class ApiService {
     final dio = await authDio;
     final response = await dio.get('/api/devices/$deviceId/logs');
     return response.data['logs'];
+  }
+
+  // 5. Join Code Co-Owner System
+  Future<Map<String, dynamic>> createInviteCode(String deviceId) async {
+    final dio = await authDio;
+    final response = await dio.post('/api/devices/$deviceId/invite', data: {});
+    return response.data;
+  }
+
+  Future<Map<String, dynamic>> joinDevice(String inviteCode) async {
+    final dio = await authDio;
+    final response = await dio.post('/api/devices/join', data: {
+      'inviteCode': inviteCode,
+    });
+    return response.data;
+  }
+
+  Future<Map<String, dynamic>> getDeviceSlots(String deviceId) async {
+    final dio = await authDio;
+    final response = await dio.get('/api/devices/$deviceId/slots');
+    return response.data;
   }
 }
