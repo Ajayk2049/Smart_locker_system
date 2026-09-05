@@ -30,7 +30,7 @@ interface StoredUserData {
   address?: string;
   pincode?: string;
   units?: number;
-  orderStatus?: "pending" | "approved" | "rejected";
+  orderStatus?: "pending" | "preparing" | "dispatched" | "delivered" | "approved" | "rejected";
   assignedDevices?: string[];
 }
 
@@ -520,10 +520,20 @@ export function Profile({ mode }: ProfileProps = {}) {
               </div>
 
               {/* Rubber Stamp: Dynamic based on orderStatus */}
-              {currentUser?.orderStatus === "approved" ? (
+              {currentUser?.orderStatus === "delivered" ? (
                 <div className="border-2 border-emerald-700 px-2.5 py-1 text-center font-mono rotate-[-3deg] bg-emerald-50 shrink-0">
                   <span className="text-[8px] font-black text-emerald-800 tracking-wider block">STATUS</span>
-                  <span className="text-[11px] font-black text-emerald-700">APPROVED</span>
+                  <span className="text-[11px] font-black text-emerald-700">DELIVERED</span>
+                </div>
+              ) : currentUser?.orderStatus === "dispatched" ? (
+                <div className="border-2 border-purple-700 px-2.5 py-1 text-center font-mono rotate-[-3deg] bg-purple-50 shrink-0">
+                  <span className="text-[8px] font-black text-purple-800 tracking-wider block">STATUS</span>
+                  <span className="text-[11px] font-black text-purple-700">DISPATCHED</span>
+                </div>
+              ) : currentUser?.orderStatus === "preparing" || currentUser?.orderStatus === "approved" ? (
+                <div className="border-2 border-blue-700 px-2.5 py-1 text-center font-mono rotate-[-3deg] bg-blue-50 shrink-0">
+                  <span className="text-[8px] font-black text-blue-800 tracking-wider block">STATUS</span>
+                  <span className="text-[11px] font-black text-blue-700">PREPARING</span>
                 </div>
               ) : currentUser?.orderStatus === "rejected" ? (
                 <div className="border-2 border-rose-700 px-2.5 py-1 text-center font-mono rotate-[-3deg] bg-rose-50 shrink-0">
@@ -566,11 +576,25 @@ export function Profile({ mode }: ProfileProps = {}) {
             </div>
 
             {/* Courier Dispatch Note */}
-            {currentUser?.orderStatus === "approved" ? (
+            {currentUser?.orderStatus === "delivered" ? (
               <div className="bg-emerald-50 border border-emerald-600/30 p-2.5 text-xs flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
                 <div className="text-[11px] text-emerald-950 leading-tight">
-                  <span className="font-bold">Order Approved!</span> {currentUser.assignedDevices?.length ? `Assigned Locker: ${currentUser.assignedDevices.join(", ")}.` : "Hardware provisioned."} Our team is dispatching your unit for doorstep installation.
+                  <span className="font-bold">Installed & Live!</span> {currentUser.assignedDevices?.length ? `Locker ${currentUser.assignedDevices.join(", ")} is installed and active.` : "Your locker is active."} You can unlock and operate it securely via the mobile app.
+                </div>
+              </div>
+            ) : currentUser?.orderStatus === "dispatched" ? (
+              <div className="bg-purple-50 border border-purple-600/30 p-2.5 text-xs flex items-center gap-2">
+                <Package className="w-4 h-4 text-purple-700 shrink-0" />
+                <div className="text-[11px] text-purple-950 leading-tight">
+                  <span className="font-bold">Dispatched:</span> {currentUser.assignedDevices?.length ? `Locker ${currentUser.assignedDevices.join(", ")}` : "Your locker"} is out for delivery with our installation engineer. Doorstep installation will follow shortly.
+                </div>
+              </div>
+            ) : currentUser?.orderStatus === "preparing" || currentUser?.orderStatus === "approved" ? (
+              <div className="bg-blue-50 border border-blue-600/30 p-2.5 text-xs flex items-center gap-2">
+                <Clock className="w-4 h-4 text-blue-700 shrink-0" />
+                <div className="text-[11px] text-blue-950 leading-tight">
+                  <span className="font-bold">Order Accepted & Preparing:</span> {currentUser.assignedDevices?.length ? `Assigned Locker: ${currentUser.assignedDevices.join(", ")}.` : "Hardware assigned."} Device is being calibrated and packed at our Bangalore hub.
                 </div>
               </div>
             ) : currentUser?.orderStatus === "rejected" ? (
@@ -584,7 +608,7 @@ export function Profile({ mode }: ProfileProps = {}) {
               <div className="bg-amber-500/15 border border-amber-600/30 p-2.5 text-xs flex items-center gap-2">
                 <Clock className="w-4 h-4 text-amber-800 shrink-0" />
                 <div className="text-[11px] text-[#3D2310] leading-tight">
-                  <span className="font-bold">Under Review:</span> Your order request has reached the Bangalore hub. Once approved, your assigned locker ID will appear here.
+                  <span className="font-bold">Under Review:</span> Your order request has reached the Bangalore hub. Once accepted, your assigned locker ID will appear here.
                 </div>
               </div>
             )}

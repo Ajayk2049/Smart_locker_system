@@ -12,6 +12,7 @@ import websocketPlugin from "./plugins/websocket.plugin.js";
 import authRoutes from "./routes/auth.routes.js";
 import deviceRoutes from "./routes/device.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
+import { simulatorHtml } from "./simulator.html.js";
 
 const fastify = Fastify({
   logger: true,
@@ -22,9 +23,31 @@ async function bootstrap() {
   await fastify.register(jwtPlugin);
   await fastify.register(websocketPlugin);
 
+  // Allow empty or blank JSON bodies (e.g. Flutter Dio POST without payload)
+  fastify.addContentTypeParser(
+    "application/json",
+    { parseAs: "string" },
+    (req, body, done) => {
+      if (!body || (typeof body === "string" && body.trim() === "")) {
+        return done(null, {});
+      }
+      try {
+        return done(null, JSON.parse(body as string));
+      } catch (err: any) {
+        err.statusCode = 400;
+        return done(err, undefined);
+      }
+    }
+  );
+
   // Health checks
   fastify.get("/health", async () => ({ status: "ok", service: "smart-locker-backend" }));
   fastify.get("/api/health", async () => ({ status: "ok", service: "smart-locker-backend" }));
+
+  // Virtual ESP32 Hardware Simulator GUI
+  fastify.get("/simulator", async (request, reply) => {
+    return reply.type("text/html").send(simulatorHtml);
+  });
 
   // Routes
   await fastify.register(authRoutes, { prefix: "/api/auth" });

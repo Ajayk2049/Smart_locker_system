@@ -1,5 +1,7 @@
 import mongoose, { Schema, Document } from "mongoose";
 
+export type LockerRequestStatus = "pending" | "preparing" | "dispatched" | "delivered" | "approved" | "rejected";
+
 export interface ILockerRequest extends Document {
   userId: mongoose.Types.ObjectId;
   name: string;
@@ -8,12 +10,15 @@ export interface ILockerRequest extends Document {
   address: string;
   pincode: string;
   units: number;
-  status: "pending" | "approved" | "rejected";
+  status: LockerRequestStatus;
   assignedDeviceIds: string[];
   rejectionReason?: string;
   notes?: string;
+  verificationNotes?: string;
   reviewedBy?: mongoose.Types.ObjectId;
   reviewedAt?: Date;
+  dispatchedAt?: Date;
+  deliveredAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -59,7 +64,7 @@ const lockerRequestSchema = new Schema<ILockerRequest>(
     },
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
+      enum: ["pending", "preparing", "dispatched", "delivered", "approved", "rejected"],
       default: "pending",
       index: true,
     },
@@ -77,11 +82,21 @@ const lockerRequestSchema = new Schema<ILockerRequest>(
       type: String,
       trim: true,
     },
+    verificationNotes: {
+      type: String,
+      trim: true,
+    },
     reviewedBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
     },
     reviewedAt: {
+      type: Date,
+    },
+    dispatchedAt: {
+      type: Date,
+    },
+    deliveredAt: {
       type: Date,
     },
   },

@@ -87,6 +87,20 @@ export async function unlockDevice(request: FastifyRequest, reply: FastifyReply)
   // Queue unlock command for the device over REST/HTTP
   const queued = commandQueueService.enqueueCommand(device.deviceId, "unlock", { triggeredBy: user.id });
 
+  // Broadcast unlocking state to WebSocket clients (mobile app)
+  wsService.broadcastToDevice(device.deviceId, {
+    type: "DEVICE_STATUS",
+    deviceId: device.deviceId,
+    doorState: "open",
+    online: true,
+  });
+  wsService.broadcastToDevice(device._id.toString(), {
+    type: "DEVICE_STATUS",
+    deviceId: device.deviceId,
+    doorState: "open",
+    online: true,
+  });
+
   await Log.create({
     deviceId: device._id,
     action: "unlock",
@@ -464,6 +478,12 @@ export async function receiveTelemetry(request: FastifyRequest, reply: FastifyRe
   console.log(`📦 [REST Telemetry] ${targetId}: doorState=${doorState}, online=true`);
 
   wsService.broadcastToDevice(targetId, {
+    type: "DEVICE_STATUS",
+    deviceId: targetId,
+    doorState,
+    online: true,
+  });
+  wsService.broadcastToDevice(device._id.toString(), {
     type: "DEVICE_STATUS",
     deviceId: targetId,
     doorState,

@@ -212,15 +212,17 @@ export async function getAllRequests(request: FastifyRequest, reply: FastifyRepl
 
 export async function updateRequestStatus(request: FastifyRequest, reply: FastifyReply) {
   const { id } = request.params as { id: string };
-  const { status, deviceId, rejectionReason, notes } = (request.body as {
-    status?: "approved" | "rejected";
+  const { status, deviceId, rejectionReason, notes, verificationNotes } = (request.body as {
+    status?: "preparing" | "dispatched" | "delivered" | "approved" | "rejected";
     deviceId?: string;
     rejectionReason?: string;
     notes?: string;
+    verificationNotes?: string;
   }) || {};
 
-  if (!status || !["approved", "rejected"].includes(status)) {
-    return reply.status(400).send({ error: "Status must be either 'approved' or 'rejected'" });
+  const validStatuses = ["preparing", "dispatched", "delivered", "approved", "rejected"];
+  if (!status || !validStatuses.includes(status)) {
+    return reply.status(400).send({ error: `Status must be one of: ${validStatuses.join(", ")}` });
   }
 
   const lockerReq = await LockerRequest.findById(id);
@@ -230,12 +232,15 @@ export async function updateRequestStatus(request: FastifyRequest, reply: Fastif
 
   const adminId = (request.user as { id: string })?.id;
 
-  if (status === "approved") {
-    if (!deviceId || !deviceId.trim()) {
-      return reply.status(400).send({ error: "Locker device ID is required to approve the request" });
+  // Step 1: Accept & Prepare (or legacy approved)
+  if (status === "preparing" || status === "approved") {
+    // If deviceId provided, assign device
+    const targetDeviceId = deviceId || (lockerReq.assignedDeviceIds && lockerReq.assignedDeviceIds[0]);
+    if (!targetDeviceId || !targetDeviceId.trim()) {
+      return reply.status(400).send({ error: "Locker device ID is required to accept the request" });
     }
 
-    const cleanDeviceId = deviceId.trim().toUpperCase();
+    const cleanDeviceId = targetDeviceId.trim().toUpperCase();
 
     // Find or create device and assign to customer
     let device = await Device.findOne({ deviceId: cleanDeviceId });
@@ -254,7 +259,7 @@ export async function updateRequestStatus(request: FastifyRequest, reply: Fastif
       });
     }
 
-    lockerReq.status = "approved";
+    lockerReq.status = "preparing";
     if (!lockerReq.assignedDeviceIds.includes(cleanDeviceId)) {
       lockerReq.assignedDeviceIds.push(cleanDeviceId);
     }
@@ -264,29 +269,97 @@ export async function updateRequestStatus(request: FastifyRequest, reply: Fastif
     await lockerReq.save();
 
     await User.findByIdAndUpdate(lockerReq.userId, {
-      orderStatus: "approved",
+      orderStatus: "preparing",
       $addToSet: { assignedDevices: cleanDeviceId },
     });
 
     await Log.create({
       deviceId: device._id,
-      action: "order_approved",
+      action: "order_preparing",
       metadata: {
         requestId: lockerReq._id,
         deviceId: cleanDeviceId,
         customerId: lockerReq.userId,
         approvedBy: adminId,
+        notes: lockerReq.notes,
       },
     });
 
     return reply.send({
       success: true,
-      message: `Request approved. Locker ${cleanDeviceId} successfully assigned to ${lockerReq.name}.`,
+      message: `Request accepted! Locker ${cleanDeviceId} assigned and in preparation.`,
       request: lockerReq,
       device,
     });
-  } else {
-    // status === "rejected"
+  }
+
+  // Step 2: Dispatched (Out for Delivery & Installation)
+  if (status === "dispatched") {
+    lockerReq.status = "dispatched";
+    lockerReq.dispatchedAt = new Date();
+    if (notes) lockerReq.notes = notes.trim();
+    await lockerReq.save();
+
+    await User.findByIdAndUpdate(lockerReq.userId, {
+      orderStatus: "dispatched",
+    });
+
+    await Log.create({
+      action: "order_dispatched",
+      metadata: {
+        requestId: lockerReq._id,
+        customerId: lockerReq.userId,
+        dispatchedBy: adminId,
+        assignedDevices: lockerReq.assignedDeviceIds,
+      },
+    });
+
+    return reply.send({
+      success: true,
+      message: `Order for ${lockerReq.name} marked as dispatched. Out for delivery and installation.`,
+      request: lockerReq,
+    });
+  }
+
+  // Step 3: Delivered & Verified Live
+  if (status === "delivered") {
+    lockerReq.status = "delivered";
+    lockerReq.deliveredAt = new Date();
+    if (verificationNotes) lockerReq.verificationNotes = verificationNotes.trim();
+    if (notes) lockerReq.notes = notes.trim();
+    await lockerReq.save();
+
+    await User.findByIdAndUpdate(lockerReq.userId, {
+      orderStatus: "delivered",
+    });
+
+    // Mark assigned devices online
+    if (lockerReq.assignedDeviceIds?.length > 0) {
+      await Device.updateMany(
+        { deviceId: { $in: lockerReq.assignedDeviceIds } },
+        { online: true }
+      );
+    }
+
+    await Log.create({
+      action: "order_delivered",
+      metadata: {
+        requestId: lockerReq._id,
+        customerId: lockerReq.userId,
+        verifiedBy: adminId,
+        verificationNotes: lockerReq.verificationNotes,
+      },
+    });
+
+    return reply.send({
+      success: true,
+      message: `Order for ${lockerReq.name} marked as delivered, installed, and verified live!`,
+      request: lockerReq,
+    });
+  }
+
+  // Step 4: Rejected
+  if (status === "rejected") {
     lockerReq.status = "rejected";
     lockerReq.rejectionReason = rejectionReason?.trim() || "Unable to fulfill request at this address";
     if (notes) lockerReq.notes = notes.trim();

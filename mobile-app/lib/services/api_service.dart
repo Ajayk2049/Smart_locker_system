@@ -78,7 +78,7 @@ class ApiService {
 
   Future<void> unlockDevice(String deviceId) async {
     final dio = await authDio;
-    await dio.post('/api/devices/$deviceId/unlock');
+    await dio.post('/api/devices/$deviceId/unlock', data: {});
   }
 
   Future<List<dynamic>> getDeviceLogs(String deviceId) async {

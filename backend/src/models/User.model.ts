@@ -11,7 +11,7 @@ export interface IUser extends Document {
   address?: string;
   pincode?: string;
   units?: number;
-  orderStatus?: "pending" | "approved" | "rejected";
+  orderStatus?: "pending" | "preparing" | "dispatched" | "delivered" | "approved" | "rejected";
   assignedDevices?: string[];
   createdAt: Date;
   updatedAt: Date;
@@ -68,7 +68,7 @@ const userSchema = new Schema<IUser>(
     },
     orderStatus: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
+      enum: ["pending", "preparing", "dispatched", "delivered", "approved", "rejected"],
       default: "pending",
     },
     assignedDevices: [

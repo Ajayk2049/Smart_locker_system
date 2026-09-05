@@ -39,8 +39,33 @@ class HomeViewModel extends ChangeNotifier {
 
   void _handleWebSocketMessage(Map<String, dynamic> message) {
     final type = message['type'];
-    if (type == 'DOOR_OPEN' || type == 'DELIVERY_SUCCESS') {
-      fetchDevices();
+    if (type == 'DEVICE_STATUS' || type == 'DOOR_OPEN' || type == 'DELIVERY_SUCCESS') {
+      final targetDeviceId = message['deviceId'];
+      final newDoorState = message['doorState'];
+      final isOnline = message['online'];
+
+      if (targetDeviceId != null && newDoorState != null) {
+        bool updated = false;
+        for (int i = 0; i < _devices.length; i++) {
+          if (_devices[i].id == targetDeviceId || _devices[i].deviceId == targetDeviceId) {
+            _devices[i] = DeviceModel(
+              id: _devices[i].id,
+              deviceId: _devices[i].deviceId,
+              name: _devices[i].name,
+              doorState: newDoorState,
+              online: isOnline ?? _devices[i].online,
+            );
+            updated = true;
+          }
+        }
+        if (updated) {
+          notifyListeners();
+        } else {
+          fetchDevices();
+        }
+      } else {
+        fetchDevices();
+      }
     }
   }
 
@@ -54,6 +79,13 @@ class HomeViewModel extends ChangeNotifier {
       _devices = devicesData
           .map((json) => DeviceModel.fromJson(json))
           .toList();
+
+      // Subscribe to WebSocket rooms for real-time status updates
+      for (final d in _devices) {
+        _ws.joinRoom(d.id);
+        _ws.joinRoom(d.deviceId);
+      }
+
       _loading = false;
       notifyListeners();
     } catch (e) {
@@ -65,13 +97,29 @@ class HomeViewModel extends ChangeNotifier {
 
   Future<void> unlockDevice(String deviceId) async {
     _error = null;
+
+    // Optimistically show door opening in UI
+    for (int i = 0; i < _devices.length; i++) {
+      if (_devices[i].id == deviceId || _devices[i].deviceId == deviceId) {
+        _devices[i] = DeviceModel(
+          id: _devices[i].id,
+          deviceId: _devices[i].deviceId,
+          name: _devices[i].name,
+          doorState: 'open',
+          online: true,
+        );
+      }
+    }
     notifyListeners();
 
     try {
       await _api.unlockDevice(deviceId);
+      // Auto-sync devices after a short delay
+      Future.delayed(const Duration(milliseconds: 1500), () => fetchDevices());
+      Future.delayed(const Duration(seconds: 4), () => fetchDevices());
     } catch (e) {
       _error = e.toString();
-      notifyListeners();
+      fetchDevices(); // revert on failure
     }
   }
 

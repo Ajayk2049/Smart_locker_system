@@ -10,7 +10,8 @@
     "build": "env-cmd -f .env.prod tsc",
     "start": "env-cmd -f .env.prod node dist/app.js",
     "lint": "eslint src/",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "simulate": "node simulator.cjs"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.1",
