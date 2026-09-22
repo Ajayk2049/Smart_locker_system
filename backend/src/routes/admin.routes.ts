@@ -8,11 +8,13 @@ import {
   createDeviceForUser,
   deleteDevice,
   createCustomer,
-  getAllRequests,
-  updateRequestStatus,
   getSystemLogs,
   getDeviceLogsForAdmin,
 } from "../controllers/admin.controller.js";
+import {
+  getAllRequests,
+  updateRequestStatus,
+} from "../controllers/adminRequests.controller.js";
 
 export default async function adminRoutes(fastify: FastifyInstance) {
   fastify.addHook("onRequest", adminMiddleware);

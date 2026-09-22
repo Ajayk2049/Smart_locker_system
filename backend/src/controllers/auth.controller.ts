@@ -2,13 +2,12 @@ import { FastifyRequest, FastifyReply } from "fastify";
 import crypto from "crypto";
 import { User } from "../models/User.model.js";
 import { Otp } from "../models/Otp.model.js";
-import { Device } from "../models/Device.model.js";
-import { Log } from "../models/Log.model.js";
 import { LockerRequest } from "../models/LockerRequest.model.js";
 import { smsService } from "../services/sms.service.js";
 import { config } from "../config.js";
+import { createLockerOrderRequest, redeemInviteCodeOnSignup } from "../services/registration.service.js";
 
-// 1. Smart Pre-Check & Send OTP
+// 1. Send OTP with Smart Pre-Check
 export async function sendOtp(request: FastifyRequest, reply: FastifyReply) {
   const { phone } = request.body as { phone?: string };
 
@@ -23,8 +22,6 @@ export async function sendOtp(request: FastifyRequest, reply: FastifyReply) {
     });
   }
 
-  // --- SMART PRE-CHECK (Cost & Spam Optimization) ---
-  // If the user is already a customer, do NOT send OTP. Inform them to log in instead!
   const existingUser = await User.findOne({ phone: cleanPhone });
   if (existingUser) {
     return reply.status(409).send({
@@ -33,16 +30,13 @@ export async function sendOtp(request: FastifyRequest, reply: FastifyReply) {
     });
   }
 
-  // Generate 6-digit OTP
   const isDemo = config.demoMode || cleanPhone === "9876543210";
   const otp = isDemo ? "123456" : Math.floor(100000 + Math.random() * 900000).toString();
   const sessionId = crypto.randomUUID();
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-  // Invalidate any older unverified OTPs for this phone
   await Otp.deleteMany({ phone: cleanPhone, verified: false });
 
-  // Save OTP in MongoDB with TTL
   await Otp.create({
     phone: cleanPhone,
     otp,
@@ -52,7 +46,6 @@ export async function sendOtp(request: FastifyRequest, reply: FastifyReply) {
     verified: false,
   });
 
-  // Dispatch via StartMessaging
   await smsService.sendOtp(cleanPhone, otp);
 
   return reply.send({
@@ -67,7 +60,7 @@ export async function sendOtp(request: FastifyRequest, reply: FastifyReply) {
   });
 }
 
-// 1b. Check If Phone Exists (Lightweight Pre-check)
+// 2. Check If Phone Exists
 export async function checkPhone(request: FastifyRequest, reply: FastifyReply) {
   const { phone } = (request.body as { phone?: string }) || {};
 
@@ -92,7 +85,7 @@ export async function checkPhone(request: FastifyRequest, reply: FastifyReply) {
   });
 }
 
-// 2. Register Account with OTP (+ Optional Join Code)
+// 3. Register Account with OTP
 export async function registerWithOtp(request: FastifyRequest, reply: FastifyReply) {
   const { phone, otp, password, email, name, inviteCode, address, pincode, units } = request.body as {
     phone?: string;
@@ -119,7 +112,6 @@ export async function registerWithOtp(request: FastifyRequest, reply: FastifyRep
     return reply.status(400).send({ error: "Invalid mobile number format" });
   }
 
-  // Check if phone was registered in the interim
   const existingUser = await User.findOne({ phone: cleanPhone });
   if (existingUser) {
     return reply.status(409).send({
@@ -128,7 +120,6 @@ export async function registerWithOtp(request: FastifyRequest, reply: FastifyRep
     });
   }
 
-  // Find latest active OTP
   const otpRecord = await Otp.findOne({
     phone: cleanPhone,
     verified: false,
@@ -139,7 +130,6 @@ export async function registerWithOtp(request: FastifyRequest, reply: FastifyRep
     return reply.status(400).send({ error: "Invalid or expired OTP. Please request a new one." });
   }
 
-  // Timing-safe OTP comparison
   const expectedBuffer = Buffer.from(otpRecord.otp);
   const actualBuffer = Buffer.from(otp.trim());
 
@@ -153,11 +143,9 @@ export async function registerWithOtp(request: FastifyRequest, reply: FastifyRep
     return reply.status(400).send({ error: "Incorrect OTP. Please try again." });
   }
 
-  // Mark OTP verified and delete
   otpRecord.verified = true;
   await Otp.deleteOne({ _id: otpRecord._id });
 
-  // Create User
   const userData: any = {
     phone: cleanPhone,
     name: name ? name.trim() : undefined,
@@ -165,89 +153,30 @@ export async function registerWithOtp(request: FastifyRequest, reply: FastifyRep
     role: "user",
     isPhoneVerified: true,
     isDemo: cleanPhone === "9876543210",
+    orderStatus: "pending",
   };
-  if (email && email.trim()) {
-    userData.email = email.toLowerCase().trim();
-  }
-  if (address && address.trim()) {
-    userData.address = address.trim();
-  }
-  if (pincode && pincode.trim()) {
-    userData.pincode = pincode.trim();
-  }
-  if (units) {
-    userData.units = Number(units) || 1;
-  }
-  userData.orderStatus = "pending";
+  if (email && email.trim()) userData.email = email.toLowerCase().trim();
+  if (address && address.trim()) userData.address = address.trim();
+  if (pincode && pincode.trim()) userData.pincode = pincode.trim();
+  if (units) userData.units = Number(units) || 1;
 
   const newUser = await User.create(userData);
 
-  // Automatically create a Locker Delivery Request for Admin review
-  try {
-    const lockerReq = await LockerRequest.create({
-      userId: newUser._id,
-      name: newUser.name || "Customer",
-      phone: newUser.phone,
-      email: newUser.email,
-      address: newUser.address || "",
-      pincode: newUser.pincode || "",
-      units: newUser.units || 1,
-      status: "pending",
-      assignedDeviceIds: [],
-    });
+  // Automatically create a Locker Delivery Request
+  await createLockerOrderRequest({
+    userId: newUser._id,
+    name: newUser.name,
+    phone: newUser.phone,
+    email: newUser.email,
+    address: newUser.address,
+    pincode: newUser.pincode,
+    units: newUser.units,
+  });
 
-    await Log.create({
-      action: "order_requested",
-      metadata: {
-        requestId: lockerReq._id,
-        userId: newUser._id,
-        phone: newUser.phone,
-        units: newUser.units || 1,
-        pincode: newUser.pincode,
-        address: newUser.address,
-      },
-    });
-  } catch (err) {
-    console.error("Failed to create LockerRequest:", err);
-  }
-
-  // Handle optional Join Code (instant co-owner enrollment)
+  // Handle optional Join Code
   let joinedDevice = null;
   if (inviteCode) {
-    const cleanCode = inviteCode.trim().toUpperCase();
-    const device = await Device.findOne({
-      inviteCode: cleanCode,
-      inviteExpiresAt: { $gt: new Date() },
-    });
-
-    if (device) {
-      const allowed = device.allowedSlots || 2;
-      const current = 1 + (device.coOwners ? device.coOwners.length : 0);
-
-      if (current < allowed) {
-        device.coOwners.push(newUser._id as any);
-        device.inviteCode = undefined;
-        device.inviteExpiresAt = undefined;
-        await device.save();
-
-        await Log.create({
-          deviceId: device._id,
-          action: "co_owner_added",
-          metadata: {
-            coOwnerId: newUser._id,
-            coOwnerPhone: newUser.phone,
-            method: "join_code_signup",
-          },
-        });
-
-        joinedDevice = {
-          id: device._id,
-          deviceId: device.deviceId,
-          name: device.name,
-        };
-        console.log(`🤝 User ${cleanPhone} joined device ${device.deviceId} via signup join code!`);
-      }
-    }
+    joinedDevice = await redeemInviteCodeOnSignup(inviteCode, newUser._id);
   }
 
   const token = request.server.jwt.sign({
@@ -277,7 +206,7 @@ export async function registerWithOtp(request: FastifyRequest, reply: FastifyRep
   });
 }
 
-// 3. User Login (Supports Mobile Number OR Email + Password)
+// 4. User Login
 export async function login(request: FastifyRequest, reply: FastifyReply) {
   const body = (request.body as {
     identifier?: string;
@@ -296,7 +225,6 @@ export async function login(request: FastifyRequest, reply: FastifyReply) {
     return reply.status(400).send({ error: "Mobile number or email is required" });
   }
 
-  // Resolve user by normalized phone or email
   const cleanPhone = smsService.normalizePhone(idString);
   const queryConditions: any[] = [];
   if (cleanPhone) {
@@ -335,7 +263,7 @@ export async function login(request: FastifyRequest, reply: FastifyReply) {
   });
 }
 
-// 4. Get Current Authenticated Profile
+// 5. Current Authenticated Profile
 export async function getMe(request: FastifyRequest, reply: FastifyReply) {
   const authUser = request.user as { id: string };
   if (!authUser?.id) {
@@ -347,7 +275,6 @@ export async function getMe(request: FastifyRequest, reply: FastifyReply) {
     return reply.status(404).send({ error: "User not found" });
   }
 
-  // Find latest locker request if any
   const latestRequest = await LockerRequest.findOne({ userId: user._id }).sort({ createdAt: -1 });
 
   return reply.send({

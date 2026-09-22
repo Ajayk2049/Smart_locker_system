@@ -4,26 +4,30 @@ import {
   getDevices,
   createDevice,
   unlockDevice,
-  testUnlockDevice,
   getDeviceLogs,
-  addCoOwner,
-  removeCoOwner,
-  getDeviceSlots,
+} from "../controllers/device.controller.js";
+import {
+  testUnlockDevice,
   getDeviceCommand,
   receiveTelemetry,
   receiveHeartbeat,
+} from "../controllers/deviceIot.controller.js";
+import {
+  addCoOwner,
+  removeCoOwner,
+  getDeviceSlots,
   createInviteCode,
   cancelInviteCode,
   joinDevice,
-} from "../controllers/device.controller.js";
+} from "../controllers/deviceSlot.controller.js";
 
 export default async function deviceRoutes(fastify: FastifyInstance) {
-  // 1. Public diagnostic endpoint for hardware team bench testing
+  // 1. Diagnostic endpoint for hardware bench testing
   fastify.post("/test/unlock", {
     handler: testUnlockDevice,
   });
 
-  // 2. Public IoT Hardware endpoints (ESP32 REST/HTTP communication)
+  // 2. IoT Hardware endpoints (ESP32 REST/HTTP short-polling & telemetry)
   fastify.get("/device/command", {
     handler: getDeviceCommand,
   });
@@ -36,10 +40,11 @@ export default async function deviceRoutes(fastify: FastifyInstance) {
     handler: receiveHeartbeat,
   });
 
-  // 2. Protected user endpoints (require valid JWT)
+  // 3. Protected user endpoints (require valid JWT)
   fastify.register(async (authScope) => {
     authScope.addHook("onRequest", authMiddleware);
 
+    // Core device management
     authScope.get("/devices", {
       handler: getDevices,
     });

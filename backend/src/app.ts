@@ -1,7 +1,7 @@
 import Fastify from "fastify";
 import mongoose from "mongoose";
 import { config } from "./config.js";
-import { checkDeviceWatchdog } from "./controllers/device.controller.js";
+import { checkDeviceWatchdog } from "./controllers/deviceIot.controller.js";
 import { wsService } from "./services/websocket.service.js";
 import { User } from "./models/User.model.js";
 
