@@ -3,11 +3,8 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { RequestsTable, LockerRequestItem, LockerRequestStatus } from "./dashboard/RequestsTable";
-import { DashboardHeader } from "./dashboard/DashboardHeader";
-import { PrepareModal } from "./modals/PrepareModal";
-import { DispatchModal } from "./modals/DispatchModal";
-import { DeliveredModal } from "./modals/DeliveredModal";
-import { RejectModal } from "./modals/RejectModal";
+import { DashboardHeader, MainDashboardTab, PendingSubFilter } from "./dashboard/DashboardHeader";
+import { DashboardModals } from "./dashboard/DashboardModals";
 
 export type { LockerRequestStatus, LockerRequestItem };
 
@@ -25,41 +22,25 @@ export function DashboardView({
   onToggleTheme,
 }: DashboardViewProps) {
   const [requests, setRequests] = useState<LockerRequestItem[]>([]);
-  const [requestFilter, setRequestFilter] = useState<"all" | LockerRequestStatus>("all");
+  const [mainTab, setMainTab] = useState<MainDashboardTab>("live");
+  const [pendingSubFilter, setPendingSubFilter] = useState<PendingSubFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   // Modal states & inputs
-  const [prepareModalData, setPrepareModalData] = useState<{
-    requestId: string;
-    customerName: string;
-    units: number;
-    suggestedDeviceId: string;
-  } | null>(null);
+  const [prepareModalData, setPrepareModalData] = useState<{ requestId: string; customerName: string; units: number; suggestedDeviceId: string } | null>(null);
   const [assignDeviceIdInput, setAssignDeviceIdInput] = useState("");
   const [prepareNotesInput, setPrepareNotesInput] = useState("");
 
-  const [dispatchModalData, setDispatchModalData] = useState<{
-    requestId: string;
-    customerName: string;
-    deviceId: string;
-  } | null>(null);
+  const [dispatchModalData, setDispatchModalData] = useState<{ requestId: string; customerName: string; deviceId: string } | null>(null);
   const [dispatchNotesInput, setDispatchNotesInput] = useState("");
 
-  const [deliverModalData, setDeliverModalData] = useState<{
-    requestId: string;
-    customerName: string;
-    phone: string;
-    deviceId: string;
-  } | null>(null);
+  const [deliverModalData, setDeliverModalData] = useState<{ requestId: string; customerName: string; phone: string; deviceId: string } | null>(null);
   const [callVerificationInput, setCallVerificationInput] = useState(
     "Verified with customer over phone: Locker delivered, mounted at door, powered ON, and live."
   );
 
-  const [rejectModalData, setRejectModalData] = useState<{
-    requestId: string;
-    customerName: string;
-  } | null>(null);
+  const [rejectModalData, setRejectModalData] = useState<{ requestId: string; customerName: string } | null>(null);
   const [rejectionReasonInput, setRejectionReasonInput] = useState("");
 
   // Feedback notifications
@@ -239,20 +220,49 @@ export function DashboardView({
     }
   };
 
-  // Filter calculations
+  // Filter calculations for 3 tabs
   const filterCounts = useMemo(() => {
-    const counts = { all: requests.length, pending: 0, preparing: 0, dispatched: 0, delivered: 0, rejected: 0 };
+    let pendingCount = 0;
+    let preparingCount = 0;
+    let dispatchedCount = 0;
+    let deliveredCount = 0;
+
     requests.forEach((r) => {
       const s = r.status === "approved" ? "preparing" : r.status;
-      if (counts[s as keyof typeof counts] !== undefined) counts[s as keyof typeof counts]++;
+      if (s === "pending") pendingCount++;
+      else if (s === "preparing") preparingCount++;
+      else if (s === "dispatched") dispatchedCount++;
+      else if (s === "delivered") deliveredCount++;
     });
-    return counts;
+
+    return {
+      live: deliveredCount,
+      pending: pendingCount + preparingCount + dispatchedCount,
+      all: requests.length,
+      pendingBreakdown: {
+        pending: pendingCount,
+        preparing: preparingCount,
+        dispatched: dispatchedCount,
+      },
+    };
   }, [requests]);
 
   const filteredRequests = useMemo(() => {
     return requests.filter((r) => {
       const normStatus = r.status === "approved" ? "preparing" : r.status;
-      if (requestFilter !== "all" && normStatus !== requestFilter) return false;
+
+      // 1. Filter by 3 Main Tabs:
+      if (mainTab === "live") {
+        if (normStatus !== "delivered") return false;
+      } else if (mainTab === "pending") {
+        const isPipeline = normStatus === "pending" || normStatus === "preparing" || normStatus === "dispatched";
+        if (!isPipeline) return false;
+        // Sub-filter inside pending tab:
+        if (pendingSubFilter !== "all" && normStatus !== pendingSubFilter) return false;
+      }
+      // If mainTab === "all", include all
+
+      // 2. Search query filter:
       if (!searchQuery.trim()) return true;
 
       const q = searchQuery.toLowerCase();
@@ -272,7 +282,7 @@ export function DashboardView({
         devices.includes(q)
       );
     });
-  }, [requests, requestFilter, searchQuery]);
+  }, [requests, mainTab, pendingSubFilter, searchQuery]);
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-[#0B0F19] text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
@@ -281,12 +291,14 @@ export function DashboardView({
         theme={theme}
         onToggleTheme={onToggleTheme}
         onLogout={onLogout}
-        onRefresh={loadRequests}
+        onRefresh={() => loadRequests(false)}
         isLoading={isLoading}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        requestFilter={requestFilter}
-        onRequestFilterChange={setRequestFilter}
+        mainTab={mainTab}
+        onMainTabChange={setMainTab}
+        pendingSubFilter={pendingSubFilter}
+        onPendingSubFilterChange={setPendingSubFilter}
         filterCounts={filterCounts}
       />
 
@@ -331,47 +343,30 @@ export function DashboardView({
       </main>
 
       {/* Standalone Modals */}
-      {prepareModalData && (
-        <PrepareModal
-          data={prepareModalData}
-          deviceIdInput={assignDeviceIdInput}
-          onDeviceIdChange={setAssignDeviceIdInput}
-          notesInput={prepareNotesInput}
-          onNotesChange={setPrepareNotesInput}
-          onClose={() => setPrepareModalData(null)}
-          onConfirm={handleConfirmPrepare}
-        />
-      )}
-
-      {dispatchModalData && (
-        <DispatchModal
-          data={dispatchModalData}
-          notesInput={dispatchNotesInput}
-          onNotesChange={setDispatchNotesInput}
-          onClose={() => setDispatchModalData(null)}
-          onConfirm={handleConfirmDispatch}
-        />
-      )}
-
-      {deliverModalData && (
-        <DeliveredModal
-          data={deliverModalData}
-          verificationInput={callVerificationInput}
-          onVerificationChange={setCallVerificationInput}
-          onClose={() => setDeliverModalData(null)}
-          onConfirm={handleConfirmDelivered}
-        />
-      )}
-
-      {rejectModalData && (
-        <RejectModal
-          data={rejectModalData}
-          reasonInput={rejectionReasonInput}
-          onReasonChange={setRejectionReasonInput}
-          onClose={() => setRejectModalData(null)}
-          onConfirm={handleConfirmReject}
-        />
-      )}
+      <DashboardModals
+        prepareModalData={prepareModalData}
+        assignDeviceIdInput={assignDeviceIdInput}
+        onAssignDeviceIdChange={setAssignDeviceIdInput}
+        prepareNotesInput={prepareNotesInput}
+        onPrepareNotesChange={setPrepareNotesInput}
+        onClosePrepare={() => setPrepareModalData(null)}
+        onConfirmPrepare={handleConfirmPrepare}
+        dispatchModalData={dispatchModalData}
+        dispatchNotesInput={dispatchNotesInput}
+        onDispatchNotesChange={setDispatchNotesInput}
+        onCloseDispatch={() => setDispatchModalData(null)}
+        onConfirmDispatch={handleConfirmDispatch}
+        deliverModalData={deliverModalData}
+        callVerificationInput={callVerificationInput}
+        onCallVerificationChange={setCallVerificationInput}
+        onCloseDeliver={() => setDeliverModalData(null)}
+        onConfirmDeliver={handleConfirmDelivered}
+        rejectModalData={rejectModalData}
+        rejectionReasonInput={rejectionReasonInput}
+        onRejectionReasonChange={setRejectionReasonInput}
+        onCloseReject={() => setRejectModalData(null)}
+        onConfirmReject={handleConfirmReject}
+      />
 
       {/* Notifications */}
       {actionSuccess && (

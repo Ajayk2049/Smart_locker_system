@@ -41,8 +41,8 @@ export function OrderWizard({
   onCancel,
 }: OrderWizardProps) {
   const stepTitles: Record<number, { title: string; sub: string }> = {
-    1: { title: "Step 1: Destination", sub: "Doorstep installation address" },
-    2: { title: "Step 2: Units Order", sub: "Hardware order quantity" },
+    1: { title: "Order Secure Box", sub: "Installation address for this locker" },
+    2: { title: "Step 2: Quantity", sub: "Select number of units" },
   };
 
   return (
@@ -67,9 +67,14 @@ export function OrderWizard({
         {step === 1 && (
           <div className="space-y-3 text-left">
             <div className="space-y-1">
-              <label className="font-mono text-[9px] font-black uppercase text-zinc-500 tracking-wider">
-                Doorstep / Flat Address
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="font-mono text-[9px] font-black uppercase text-zinc-500 tracking-wider">
+                  Doorstep / Property Address
+                </label>
+                <span className="text-[9px] font-mono text-zinc-400">
+                  New or existing address
+                </span>
+              </div>
               <div className="relative">
                 <Home className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
                 <textarea

@@ -7,6 +7,7 @@ import {
   XCircle,
   ShieldCheck,
   Check,
+  ChevronDown,
 } from "lucide-react";
 
 export type LockerRequestStatus =
@@ -83,14 +84,14 @@ export function RequestsTable({
               <th className="py-3.5 px-4 min-w-[70px] w-[6%] text-center">Units</th>
               <th className="py-3.5 px-4 min-w-[130px] w-[12%]">Status</th>
               <th className="py-3.5 px-4 min-w-[110px] w-[10%]">Assigned Unit</th>
-              <th className="py-3.5 px-5 min-w-[220px] w-[18%] text-right">Lifecycle Actions</th>
+              <th className="py-3.5 px-5 min-w-[220px] w-[18%] text-right">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 dark:divide-slate-800/80">
             {isLoading ? (
               <tr>
                 <td colSpan={7} className="py-20 text-center text-base text-[#00F5A0] font-mono font-bold">
-                  Loading order pipeline...
+                  Loading orders...
                 </td>
               </tr>
             ) : requests.length === 0 ? (
@@ -210,45 +211,60 @@ export function RequestsTable({
 
                     {/* Lifecycle Actions */}
                     <td className="py-4 px-5 align-middle text-right">
-                      {normStatus === "pending" && (
-                        <div className="flex items-center justify-end gap-2.5">
-                          <button
-                            onClick={() => onOpenReject(req)}
-                            className="h-10 px-4 rounded-none border border-rose-500/50 text-rose-500 hover:bg-rose-500/10 text-xs font-black uppercase tracking-wider whitespace-nowrap inline-flex items-center justify-center transition-colors cursor-pointer"
-                          >
-                            Reject
-                          </button>
-                          <button
-                            onClick={() => onOpenPrepare(req)}
-                            className="h-10 px-5 rounded-none bg-[#00F5A0] hover:bg-[#00DE90] text-black font-black text-xs uppercase tracking-wider whitespace-nowrap shadow-none transition-all cursor-pointer inline-flex items-center justify-center gap-2"
-                          >
-                            <Check className="w-4 h-4 stroke-[3] shrink-0" />
-                            <span className="whitespace-nowrap">Accept & Prepare</span>
-                          </button>
-                        </div>
-                      )}
-
-                      {normStatus === "preparing" && (
+                      {(normStatus === "pending" ||
+                        normStatus === "preparing" ||
+                        normStatus === "dispatched") && (
                         <div className="flex items-center justify-end">
-                          <button
-                            onClick={() => onOpenDispatch(req)}
-                            className="h-10 px-5 rounded-none bg-[#00F5A0] hover:bg-[#00DE90] text-black font-black text-xs uppercase tracking-wider whitespace-nowrap shadow-none transition-all cursor-pointer inline-flex items-center justify-center gap-2"
-                          >
-                            <Truck className="w-4 h-4 shrink-0" />
-                            <span className="whitespace-nowrap">Dispatch Order</span>
-                          </button>
-                        </div>
-                      )}
-
-                      {normStatus === "dispatched" && (
-                        <div className="flex items-center justify-end">
-                          <button
-                            onClick={() => onOpenDeliver(req)}
-                            className="h-10 px-5 rounded-none bg-[#00F5A0] hover:bg-[#00DE90] text-black font-black text-xs uppercase tracking-wider whitespace-nowrap shadow-none transition-all cursor-pointer inline-flex items-center justify-center gap-2"
-                          >
-                            <CheckCircle2 className="w-4 h-4 stroke-[3] shrink-0" />
-                            <span className="whitespace-nowrap">Verify Call & Mark Live</span>
-                          </button>
+                          <div className="relative inline-block">
+                            <select
+                              value=""
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === "prepare") onOpenPrepare(req);
+                                else if (val === "dispatch") onOpenDispatch(req);
+                                else if (val === "deliver") onOpenDeliver(req);
+                                else if (val === "reject") onOpenReject(req);
+                              }}
+                              className="h-10 pl-4 pr-9 rounded-none bg-[#00F5A0] hover:bg-[#00DE90] text-black font-black text-xs uppercase tracking-wider appearance-none cursor-pointer border border-[#00F5A0] shadow-none transition-colors"
+                            >
+                              <option value="" disabled hidden>
+                                Next Stage ▾
+                              </option>
+                              {normStatus === "pending" && (
+                                <>
+                                  <option
+                                    value="prepare"
+                                    className="bg-white dark:bg-[#0D141F] text-slate-900 dark:text-slate-100 font-bold"
+                                  >
+                                    ➔ Accept & Prepare
+                                  </option>
+                                  <option
+                                    value="reject"
+                                    className="bg-white dark:bg-[#0D141F] text-rose-600 font-bold"
+                                  >
+                                    ✖ Reject Order
+                                  </option>
+                                </>
+                              )}
+                              {normStatus === "preparing" && (
+                                <option
+                                  value="dispatch"
+                                  className="bg-white dark:bg-[#0D141F] text-slate-900 dark:text-slate-100 font-bold"
+                                >
+                                  ➔ Dispatch (Out for Delivery)
+                                </option>
+                              )}
+                              {normStatus === "dispatched" && (
+                                <option
+                                  value="deliver"
+                                  className="bg-white dark:bg-[#0D141F] text-slate-900 dark:text-slate-100 font-bold"
+                                >
+                                  ➔ Mark Delivered & Live
+                                </option>
+                              )}
+                            </select>
+                            <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-black pointer-events-none stroke-[2.5]" />
+                          </div>
                         </div>
                       )}
 

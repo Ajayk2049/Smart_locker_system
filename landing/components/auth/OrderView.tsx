@@ -19,8 +19,8 @@ export function OrderView({
   onCancel,
 }: OrderViewProps) {
   const [orderStep, setOrderStep] = useState<number>(1);
-  const [orderAddress, setOrderAddress] = useState("");
-  const [orderPincode, setOrderPincode] = useState("");
+  const [orderAddress, setOrderAddress] = useState(currentUser?.address || "");
+  const [orderPincode, setOrderPincode] = useState(currentUser?.pincode || "");
   const [orderUnits, setOrderUnits] = useState<number>(1);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

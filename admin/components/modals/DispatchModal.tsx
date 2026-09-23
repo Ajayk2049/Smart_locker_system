@@ -46,18 +46,18 @@ export function DispatchModal({
         </div>
 
         <div className="p-3.5 rounded-none bg-slate-50 dark:bg-[#080D14] border border-slate-300 dark:border-slate-800 text-sm text-slate-700 dark:text-slate-300">
-          Locker <strong className="text-[#00F5A0] font-mono">{data.deviceId}</strong> is packaged and handed over to the courier/installation engineer.
+          Locker <strong className="text-[#00F5A0] font-mono">{data.deviceId}</strong> is packed and on the way for installation.
         </div>
 
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-bold text-slate-800 dark:text-slate-200">
-            Dispatch / Courier Note (Optional)
+            Delivery Note (Optional)
           </label>
           <input
             type="text"
             value={notesInput}
             onChange={(e) => onNotesChange(e.target.value)}
-            placeholder="e.g. Dispatched via Express Hub Team (Delivery Slot: Today 4-6 PM)"
+            placeholder="e.g. Delivery slot: Today 4-6 PM"
             className="w-full px-3.5 py-2.5 rounded-none bg-slate-50 dark:bg-[#080D14] border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:border-[#00F5A0] focus:ring-1 focus:ring-[#00F5A0]"
           />
         </div>

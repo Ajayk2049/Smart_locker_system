@@ -35,10 +35,10 @@ export function PrepareModal({
             </div>
             <div>
               <h3 className="text-lg font-black text-slate-900 dark:text-slate-100">
-                Accept Order & Switch to Preparing
+                Accept Order & Prepare Locker
               </h3>
               <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                Assign hardware to customer {data.customerName}
+                Assign locker to {data.customerName}
               </p>
             </div>
           </div>
@@ -53,7 +53,7 @@ export function PrepareModal({
         <div className="flex flex-col gap-4 pt-1">
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-bold text-slate-800 dark:text-slate-200">
-              ESP32 Locker Device ID
+              Locker Device ID
             </label>
             <input
               type="text"

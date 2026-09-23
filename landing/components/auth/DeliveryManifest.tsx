@@ -6,6 +6,7 @@ import {
   Clock,
   AlertCircle,
   LogOut,
+  Plus,
 } from "lucide-react";
 import { ShippingLabelHeader } from "./ShippingLabelHeader";
 
@@ -41,8 +42,8 @@ export function DeliveryManifest({ currentUser, onLogout, onStartOrder }: Delive
     <div className="flex-1 flex items-center justify-center w-full h-full font-sans p-1 sm:p-2">
       <div className="bg-[#FAF9F5] border-2 border-[#3D2310]/35 p-4 sm:p-5 text-[#3D2310] w-[94%] md:w-[90%] h-[94%] flex flex-col justify-between mx-auto my-auto overflow-hidden no-scrollbar shadow-none">
         <ShippingLabelHeader
-          title={hasOrder ? "Delivery Manifest" : "User Profile"}
-          subtitle={hasOrder ? "Customer Account & Order Details" : "Authorized Member Account"}
+          title={hasOrder ? "Order Status" : "My Account"}
+          subtitle={hasOrder ? "Order and delivery address" : "Account details"}
         />
 
         <div className="flex-1 flex flex-col justify-center py-2 space-y-3">
@@ -125,6 +126,17 @@ export function DeliveryManifest({ currentUser, onLogout, onStartOrder }: Delive
                     {currentUser?.units || 1} Unit{(currentUser?.units || 1) > 1 ? "s" : ""}
                   </span>
                 </div>
+
+                {onStartOrder && (
+                  <button
+                    type="button"
+                    onClick={onStartOrder}
+                    className="w-full mt-2 py-2 px-3 bg-[#3D2310] hover:bg-[#261508] text-[#FAF9F5] font-mono text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-amber-300 stroke-[3]" />
+                    <span>+ ORDER ANOTHER LOCKER</span>
+                  </button>
+                )}
               </div>
 
               {/* Status notices */}
@@ -229,7 +241,7 @@ export function DeliveryManifest({ currentUser, onLogout, onStartOrder }: Delive
             className="w-full py-2 bg-transparent hover:bg-rose-50 text-rose-800 border-2 border-rose-800/40 text-xs font-bold font-mono tracking-wider flex items-center justify-center gap-2 transition-colors cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
-            <span>DISCONNECT SESSION</span>
+            <span>LOGOUT</span>
           </button>
         </div>
       </div>

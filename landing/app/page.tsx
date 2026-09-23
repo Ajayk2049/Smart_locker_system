@@ -151,16 +151,6 @@ export default function Home() {
                 view === "profile" && profileMode === "login" ? "w-full" : "w-0 group-hover:w-full"
               }`} />
             </a>
-
-            <button
-              type="button"
-              onClick={() => {
-                transitionTo("profile", "register");
-              }}
-              className="px-3.5 py-1.5 md:px-5 md:py-2 bg-[#3D2310] text-[#FAF9F5] rounded-xl font-sans font-black text-sm md:text-[2.2vh] hover:bg-[#261508] transition-all duration-200 shadow-sm cursor-pointer hover:scale-105 active:scale-95 flex items-center gap-1"
-            >
-              Sign Up
-            </button>
           </nav>
         </header>
 

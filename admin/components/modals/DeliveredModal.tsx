@@ -31,10 +31,10 @@ export function DeliveredModal({
             </div>
             <div>
               <h3 className="text-lg font-black text-slate-900 dark:text-slate-100">
-                Verify Installation & Mark Delivered
+                Confirm Delivery & Make Locker Live
               </h3>
               <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                Confirm live state with {data.customerName}
+                Confirm with {data.customerName}
               </p>
             </div>
           </div>
@@ -52,7 +52,7 @@ export function DeliveredModal({
             <span className="text-slate-900 dark:text-slate-100">+91 {data.phone}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500">Hardware Unit:</span>
+            <span className="text-slate-500">Locker ID:</span>
             <span className="font-black text-[#00F5A0]">{data.deviceId}</span>
           </div>
         </div>

@@ -84,7 +84,7 @@ export function LoginView({ onLoginSuccess, theme = "light", onToggleTheme }: Lo
             Secure Box Admin
           </h1>
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-            Sign in to manage customers, fleet hardware and delivery requests
+            Sign in to manage customers, lockers, and delivery requests
           </p>
         </div>
 

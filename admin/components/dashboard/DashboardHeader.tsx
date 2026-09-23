@@ -1,6 +1,8 @@
 import React from "react";
 import { Box, Search, RefreshCw, Sun, Moon, LogOut } from "lucide-react";
-import { LockerRequestStatus } from "./RequestsTable";
+
+export type MainDashboardTab = "live" | "pending" | "all";
+export type PendingSubFilter = "all" | "pending" | "preparing" | "dispatched";
 
 interface DashboardHeaderProps {
   adminUser?: any;
@@ -11,15 +13,19 @@ interface DashboardHeaderProps {
   isLoading: boolean;
   searchQuery: string;
   onSearchChange: (val: string) => void;
-  requestFilter: "all" | LockerRequestStatus;
-  onRequestFilterChange: (filter: "all" | LockerRequestStatus) => void;
+  mainTab: MainDashboardTab;
+  onMainTabChange: (tab: MainDashboardTab) => void;
+  pendingSubFilter: PendingSubFilter;
+  onPendingSubFilterChange: (stage: PendingSubFilter) => void;
   filterCounts: {
-    all: number;
+    live: number;
     pending: number;
-    preparing: number;
-    dispatched: number;
-    delivered: number;
-    rejected: number;
+    all: number;
+    pendingBreakdown: {
+      pending: number;
+      preparing: number;
+      dispatched: number;
+    };
   };
 }
 
@@ -32,8 +38,10 @@ export function DashboardHeader({
   isLoading,
   searchQuery,
   onSearchChange,
-  requestFilter,
-  onRequestFilterChange,
+  mainTab,
+  onMainTabChange,
+  pendingSubFilter,
+  onPendingSubFilterChange,
   filterCounts,
 }: DashboardHeaderProps) {
   return (
@@ -110,49 +118,66 @@ export function DashboardHeader({
               </span>
             </h1>
             <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">
-              Customer order fulfillment pipeline, hardware serial allocation, and doorstep delivery lifecycle
+              Track locker requests, assign lockers, and manage deliveries
             </p>
           </div>
         </div>
 
-        {/* Filter Pills & Search Card */}
+        {/* 3 Main Tabs & Stage Filter Toolbar */}
         <div className="w-full bg-white dark:bg-[#0D141F] p-2.5 rounded-none border border-slate-200 dark:border-slate-800 shadow-none flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          {/* Filter Pills */}
-          <div className="flex items-center gap-2 flex-wrap overflow-x-auto no-scrollbar py-0.5 max-w-full">
-            {(
-              [
+          {/* Tabs + Dropdown Container */}
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* The 3 Main Tabs */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {[
+                { id: "live", label: "Live Devices", count: filterCounts.live },
+                { id: "pending", label: "Pending Orders", count: filterCounts.pending },
                 { id: "all", label: "All Orders", count: filterCounts.all },
-                { id: "pending", label: "Pending", count: filterCounts.pending },
-                { id: "preparing", label: "Preparing", count: filterCounts.preparing },
-                { id: "dispatched", label: "Dispatched", count: filterCounts.dispatched },
-                { id: "delivered", label: "Delivered & Live", count: filterCounts.delivered },
-                { id: "rejected", label: "Rejected", count: filterCounts.rejected },
-              ] as const
-            ).map((tab) => {
-              const active = requestFilter === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => onRequestFilterChange(tab.id as any)}
-                  className={`h-10 px-4 rounded-none text-xs font-black uppercase tracking-wider transition-all cursor-pointer inline-flex items-center gap-2 whitespace-nowrap border ${
-                    active
-                      ? "bg-[#00F5A0] text-black border-[#00F5A0]"
-                      : "bg-slate-50 dark:bg-[#080D14] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-[#00F5A0]/60 hover:text-black dark:hover:text-[#00F5A0]"
-                  }`}
-                >
-                  <span>{tab.label}</span>
-                  <span
-                    className={`h-5 min-w-[20px] px-1.5 inline-flex items-center justify-center text-[10px] rounded-none font-mono font-black ${
+              ].map((tab) => {
+                const active = mainTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => onMainTabChange(tab.id as MainDashboardTab)}
+                    className={`h-10 px-4 rounded-none text-xs font-black uppercase tracking-wider transition-all cursor-pointer inline-flex items-center gap-2 whitespace-nowrap border ${
                       active
-                        ? "bg-black/20 text-black"
-                        : "bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+                        ? "bg-[#00F5A0] text-black border-[#00F5A0]"
+                        : "bg-slate-50 dark:bg-[#080D14] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-[#00F5A0]/60 hover:text-black dark:hover:text-[#00F5A0]"
                     }`}
                   >
-                    {tab.count}
-                  </span>
-                </button>
-              );
-            })}
+                    <span>{tab.label}</span>
+                    <span
+                      className={`h-5 min-w-[20px] px-1.5 inline-flex items-center justify-center text-[10px] rounded-none font-mono font-black ${
+                        active
+                          ? "bg-black/20 text-black"
+                          : "bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Pending Orders Sub-Filter Dropdown */}
+            {mainTab === "pending" && (
+              <div className="flex items-center gap-2 pl-1 border-l-2 border-slate-200 dark:border-slate-800">
+                <span className="text-[11px] font-mono font-bold uppercase text-slate-400 hidden sm:inline">
+                  Stage:
+                </span>
+                <select
+                  value={pendingSubFilter}
+                  onChange={(e) => onPendingSubFilterChange(e.target.value as PendingSubFilter)}
+                  className="h-10 px-3 pr-8 rounded-none bg-slate-50 dark:bg-[#080D14] border border-slate-200 dark:border-slate-800 text-xs font-black uppercase text-slate-900 dark:text-slate-100 focus:outline-none focus:border-[#00F5A0] cursor-pointer font-mono"
+                >
+                  <option value="all">All Pending Orders ({filterCounts.pending})</option>
+                  <option value="pending">Pending Acceptance ({filterCounts.pendingBreakdown.pending})</option>
+                  <option value="preparing">Preparing Locker ({filterCounts.pendingBreakdown.preparing})</option>
+                  <option value="dispatched">Out for Delivery ({filterCounts.pendingBreakdown.dispatched})</option>
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Search Input - Universal Height h-10 */}
