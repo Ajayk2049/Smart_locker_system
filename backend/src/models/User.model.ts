@@ -69,7 +69,6 @@ const userSchema = new Schema<IUser>(
     orderStatus: {
       type: String,
       enum: ["pending", "preparing", "dispatched", "delivered", "approved", "rejected"],
-      default: "pending",
     },
     assignedDevices: [
       {

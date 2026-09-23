@@ -1,5 +1,5 @@
 import { FastifyInstance } from "fastify";
-import { sendOtp, checkPhone, registerWithOtp, login, getMe } from "../controllers/auth.controller.js";
+import { sendOtp, checkPhone, registerWithOtp, login, getMe, placeOrder } from "../controllers/auth.controller.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 
 export default async function authRoutes(fastify: FastifyInstance) {
@@ -32,5 +32,11 @@ export default async function authRoutes(fastify: FastifyInstance) {
   fastify.get("/me", {
     preHandler: [authMiddleware],
     handler: getMe,
+  });
+
+  // 5. Place a Secure Box Order (Logged-in User)
+  fastify.post("/order", {
+    preHandler: [authMiddleware],
+    handler: placeOrder,
   });
 }

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { LoginForm } from "./auth/LoginForm";
 import { RegisterWizard } from "./auth/RegisterWizard";
+import { OrderView } from "./auth/OrderView";
 import { DeliveryManifest, StoredUserData } from "./auth/DeliveryManifest";
 
 interface ProfileProps {
@@ -14,6 +15,7 @@ export function Profile({ mode }: ProfileProps = {}) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState<StoredUserData | null>(null);
   const [isRegister, setIsRegister] = useState(mode === "register");
+  const [isOrdering, setIsOrdering] = useState(false);
 
   useEffect(() => {
     if (mode === "register") {
@@ -26,7 +28,7 @@ export function Profile({ mode }: ProfileProps = {}) {
     }
   }, [mode]);
 
-  // Step-wise registration (1 to 5)
+  // Step-wise registration (1 to 3)
   const [step, setStep] = useState<number>(1);
   const [regName, setRegName] = useState("");
   const [regEmail, setRegEmail] = useState("");
@@ -34,9 +36,7 @@ export function Profile({ mode }: ProfileProps = {}) {
   const [regOtp, setRegOtp] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regConfirmPassword, setRegConfirmPassword] = useState("");
-  const [regAddress, setRegAddress] = useState("");
-  const [regPincode, setRegPincode] = useState("");
-  const [regUnits, setRegUnits] = useState<number>(1);
+  const [regInviteCode, setRegInviteCode] = useState("");
 
   // OTP cooldown
   const [otpCooldown, setOtpCooldown] = useState<number>(0);
@@ -87,8 +87,8 @@ export function Profile({ mode }: ProfileProps = {}) {
                   email: data.user.email,
                   address: data.user.address,
                   pincode: data.user.pincode,
-                  units: data.user.units || 1,
-                  orderStatus: data.user.orderStatus || "pending",
+                  units: data.user.units,
+                  orderStatus: data.user.orderStatus,
                   assignedDevices: data.user.assignedDevices || [],
                 };
                 setCurrentUser(refreshed);
@@ -158,7 +158,7 @@ export function Profile({ mode }: ProfileProps = {}) {
     }
   };
 
-  // Register form submit
+  // Register form submit (Free account creation)
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearMessages();
@@ -187,9 +187,7 @@ export function Profile({ mode }: ProfileProps = {}) {
           password: regPassword,
           name: regName || undefined,
           email: regEmail || undefined,
-          address: regAddress || undefined,
-          pincode: regPincode || undefined,
-          units: regUnits || 1,
+          joinCode: regInviteCode.trim() || undefined,
         }),
       });
 
@@ -201,10 +199,10 @@ export function Profile({ mode }: ProfileProps = {}) {
         name: data.user?.name || regName || "Customer",
         phone: data.user?.phone || regPhone,
         email: data.user?.email || regEmail,
-        address: data.user?.address || regAddress,
-        pincode: data.user?.pincode || regPincode,
-        units: data.user?.units || regUnits || 1,
-        orderStatus: data.user?.orderStatus || "pending",
+        address: data.user?.address,
+        pincode: data.user?.pincode,
+        units: data.user?.units,
+        orderStatus: data.user?.orderStatus,
         assignedDevices: data.user?.assignedDevices || [],
       };
 
@@ -253,8 +251,8 @@ export function Profile({ mode }: ProfileProps = {}) {
         email: data.user?.email,
         address: data.user?.address,
         pincode: data.user?.pincode,
-        units: data.user?.units || 1,
-        orderStatus: data.user?.orderStatus || "pending",
+        units: data.user?.units,
+        orderStatus: data.user?.orderStatus,
         assignedDevices: data.user?.assignedDevices || [],
       };
 
@@ -278,6 +276,7 @@ export function Profile({ mode }: ProfileProps = {}) {
     localStorage.removeItem("smartbox_user_data");
     localStorage.removeItem("smartbox_token");
     setIsLoggedIn(false);
+    setIsOrdering(false);
     setCurrentUser(null);
     setStep(1);
     setLoginIdentifier("");
@@ -288,14 +287,37 @@ export function Profile({ mode }: ProfileProps = {}) {
     setRegOtp("");
     setRegPassword("");
     setRegConfirmPassword("");
-    setRegAddress("");
-    setRegPincode("");
-    setRegUnits(1);
+    setRegInviteCode("");
     clearMessages();
   };
 
   if (isLoggedIn) {
-    return <DeliveryManifest currentUser={currentUser} onLogout={handleLogout} />;
+    if (isOrdering) {
+      return (
+        <OrderView
+          apiUrl={apiUrl}
+          currentUser={currentUser}
+          onOrderComplete={(updated) => {
+            setCurrentUser(updated);
+            setIsOrdering(false);
+          }}
+          onCancel={() => {
+            setIsOrdering(false);
+          }}
+        />
+      );
+    }
+
+    return (
+      <DeliveryManifest
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        onStartOrder={() => {
+          setIsOrdering(true);
+          clearMessages();
+        }}
+      />
+    );
   }
 
   return (
@@ -330,12 +352,8 @@ export function Profile({ mode }: ProfileProps = {}) {
           onPasswordChange={setRegPassword}
           confirmPassword={regConfirmPassword}
           onConfirmPasswordChange={setRegConfirmPassword}
-          address={regAddress}
-          onAddressChange={setRegAddress}
-          pincode={regPincode}
-          onPincodeChange={setRegPincode}
-          units={regUnits}
-          onUnitsChange={setRegUnits}
+          inviteCode={regInviteCode}
+          onInviteCodeChange={setRegInviteCode}
           otpCooldown={otpCooldown}
           loading={loading}
           onSendOtp={handleSendOtp}

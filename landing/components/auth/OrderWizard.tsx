@@ -1,0 +1,203 @@
+import React from "react";
+import {
+  Home,
+  MapPin,
+  Package,
+  Plus,
+  Minus,
+  Check,
+  ArrowRight,
+  ArrowLeft,
+  Loader2,
+  X,
+} from "lucide-react";
+import { ShippingLabelHeader } from "./ShippingLabelHeader";
+
+interface OrderWizardProps {
+  step: number;
+  onSetStep: (step: number) => void;
+  address: string;
+  onAddressChange: (val: string) => void;
+  pincode: string;
+  onPincodeChange: (val: string) => void;
+  units: number;
+  onUnitsChange: (val: number) => void;
+  loading: boolean;
+  onSubmit: (e: React.FormEvent) => void;
+  onCancel: () => void;
+}
+
+export function OrderWizard({
+  step,
+  onSetStep,
+  address,
+  onAddressChange,
+  pincode,
+  onPincodeChange,
+  units,
+  onUnitsChange,
+  loading,
+  onSubmit,
+  onCancel,
+}: OrderWizardProps) {
+  const stepTitles: Record<number, { title: string; sub: string }> = {
+    1: { title: "Step 1: Destination", sub: "Doorstep installation address" },
+    2: { title: "Step 2: Units Order", sub: "Hardware order quantity" },
+  };
+
+  return (
+    <div className="bg-[#FAF9F5] border-2 border-[#3D2310]/35 p-4 sm:p-5 text-[#3D2310] w-[94%] md:w-[90%] h-[94%] flex flex-col justify-between mx-auto my-auto overflow-hidden no-scrollbar shadow-none">
+      <div className="relative">
+        <ShippingLabelHeader
+          title={stepTitles[step]?.title || "Order Secure Box"}
+          subtitle={stepTitles[step]?.sub || "Step-wise configuration"}
+        />
+        <button
+          type="button"
+          onClick={onCancel}
+          title="Back to Account"
+          className="absolute right-0 top-0 p-1 text-[#3D2310]/60 hover:text-[#3D2310] cursor-pointer"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <form onSubmit={onSubmit} className="flex-1 flex flex-col justify-center py-2 space-y-3">
+        {/* Step 1: Address & Pincode */}
+        {step === 1 && (
+          <div className="space-y-3 text-left">
+            <div className="space-y-1">
+              <label className="font-mono text-[9px] font-black uppercase text-zinc-500 tracking-wider">
+                Doorstep / Flat Address
+              </label>
+              <div className="relative">
+                <Home className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
+                <textarea
+                  rows={2}
+                  required
+                  disabled={loading}
+                  value={address}
+                  onChange={(e) => onAddressChange(e.target.value)}
+                  placeholder="Flat / Villa No., Apartment, Street, Landmark"
+                  className="w-full bg-white border-2 border-[#3D2310]/30 pl-9 pr-3 py-2 text-xs text-[#3D2310] placeholder-zinc-400 focus:outline-none focus:border-[#3D2310] font-sans resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="font-mono text-[9px] font-black uppercase text-zinc-500 tracking-wider">
+                Postal PIN Code (Bengaluru)
+              </label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                <input
+                  type="text"
+                  maxLength={6}
+                  required
+                  disabled={loading}
+                  value={pincode}
+                  onChange={(e) => onPincodeChange(e.target.value.replace(/\D/g, ""))}
+                  placeholder="e.g. 560001"
+                  className="w-full bg-white border-2 border-[#3D2310]/30 pl-9 pr-3 py-2 text-xs text-[#3D2310] placeholder-zinc-400 focus:outline-none focus:border-[#3D2310] font-mono"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Units Selection */}
+        {step === 2 && (
+          <div className="space-y-3 text-left">
+            <div className="space-y-1">
+              <label className="font-mono text-[9px] font-black uppercase text-zinc-500 tracking-wider">
+                Number of Lockers to Deploy
+              </label>
+              <div className="flex items-center justify-between bg-white border-2 border-[#3D2310]/30 p-2.5">
+                <span className="text-xs font-bold text-[#3D2310] font-mono flex items-center gap-2">
+                  <Package className="w-4 h-4 text-[#3D2310]" />
+                  Secure Box Standard Units
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onUnitsChange(Math.max(1, units - 1))}
+                    className="w-7 h-7 rounded border border-[#3D2310]/30 flex items-center justify-center text-[#3D2310] hover:bg-zinc-100 cursor-pointer"
+                  >
+                    <Minus className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="font-mono font-black text-sm w-6 text-center">{units}</span>
+                  <button
+                    type="button"
+                    onClick={() => onUnitsChange(Math.min(5, units + 1))}
+                    className="w-7 h-7 rounded border border-[#3D2310]/30 flex items-center justify-center text-[#3D2310] hover:bg-zinc-100 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-2.5 bg-amber-50 border border-amber-600/20 text-[11px] text-[#3D2310] font-mono space-y-0.5">
+              <div>• Free doorstep installation & hardware setup</div>
+              <div>• 2 user slots included per box (Primary + Co-owner)</div>
+            </div>
+          </div>
+        )}
+
+        {/* Navigation Buttons */}
+        <div className="pt-2 flex items-center justify-between gap-2">
+          {step > 1 ? (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => onSetStep(step - 1)}
+              className="px-3 py-2 bg-transparent border-2 border-[#3D2310]/30 text-[#3D2310] hover:bg-zinc-100 text-xs font-mono font-bold uppercase flex items-center gap-1 cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={onCancel}
+              className="px-3 py-2 bg-transparent border-2 border-[#3D2310]/30 text-zinc-600 hover:bg-zinc-100 text-xs font-mono font-bold uppercase cursor-pointer"
+            >
+              Cancel
+            </button>
+          )}
+
+          {step < 2 ? (
+            <button
+              type="button"
+              disabled={loading || !address.trim() || pincode.length !== 6}
+              onClick={() => onSetStep(2)}
+              className="px-4 py-2 bg-[#3D2310] hover:bg-[#2B1810] text-[#FAF9F5] text-xs font-mono font-bold uppercase flex items-center gap-1 ml-auto cursor-pointer disabled:opacity-50"
+            >
+              <span>Next</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-mono font-black uppercase flex items-center gap-1.5 ml-auto shadow-sm cursor-pointer disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Placing Order...</span>
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 stroke-[3]" />
+                  <span>Confirm Order</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      </form>
+    </div>
+  );
+}

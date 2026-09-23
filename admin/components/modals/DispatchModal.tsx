@@ -21,36 +21,36 @@ export function DispatchModal({
   onConfirm,
 }: DispatchModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-      <div className="w-full max-w-md bg-white dark:bg-[#101522] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
+      <div className="w-full max-w-lg bg-white dark:bg-[#0D141F] rounded-none border-2 border-slate-300 dark:border-slate-800 shadow-2xl p-6 sm:p-7 flex flex-col gap-5">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800/80 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-none bg-[#00F5A0]/20 dark:bg-[#00F5A0]/15 text-black dark:text-[#00F5A0] border border-[#00F5A0]/50 dark:border-[#00F5A0]/30 flex items-center justify-center font-bold">
               <Truck className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+              <h3 className="text-lg font-black text-slate-900 dark:text-slate-100">
                 Dispatch Locker Order
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
                 Out for delivery to {data.customerName}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-slate-100 rounded-none cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400">
-          Locker <strong>{data.deviceId}</strong> is packaged and handed over to the courier/installation engineer.
+        <div className="p-3.5 rounded-none bg-slate-50 dark:bg-[#080D14] border border-slate-300 dark:border-slate-800 text-sm text-slate-700 dark:text-slate-300">
+          Locker <strong className="text-[#00F5A0] font-mono">{data.deviceId}</strong> is packaged and handed over to the courier/installation engineer.
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-bold text-slate-800 dark:text-slate-200">
             Dispatch / Courier Note (Optional)
           </label>
           <input
@@ -58,22 +58,22 @@ export function DispatchModal({
             value={notesInput}
             onChange={(e) => onNotesChange(e.target.value)}
             placeholder="e.g. Dispatched via Express Hub Team (Delivery Slot: Today 4-6 PM)"
-            className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 text-xs focus:outline-none focus:border-purple-500"
+            className="w-full px-3.5 py-2.5 rounded-none bg-slate-50 dark:bg-[#080D14] border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:border-[#00F5A0] focus:ring-1 focus:ring-[#00F5A0]"
           />
         </div>
 
-        <div className="flex items-center justify-end gap-2 pt-2">
+        <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-slate-800/80">
           <button
             type="button"
             onClick={onClose}
-            className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="px-4 py-2.5 rounded-none text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer border border-transparent"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+            className="px-5 py-2.5 rounded-none bg-[#00F5A0] hover:bg-[#00DE90] text-black font-black text-sm shadow-none transition-all cursor-pointer flex items-center gap-2"
           >
             <Truck className="w-4 h-4" />
             <span>Confirm Dispatched</span>

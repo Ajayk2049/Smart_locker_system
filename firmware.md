@@ -10,7 +10,13 @@ The locker operates on a **power-to-unlock, push-to-lock** paradigm:
 
 1. **Unlock Phase**: Upon receiving an unlock command from the backend, the firmware energizes the solenoid latch for **exactly 3 seconds**, then cuts off power.
 2. **Deposit & Lock Phase**: The courier opens the door, places the parcel inside, and **physically pushes the door shut** (spring-loaded latch catches mechanically).
-3. **Closure Detection**: The firmware **never receives a "Lock" command**. Locking is 100% mechanical. The firmware detects closure via the door state sensor (reed switch) and immediately posts a telemetry event.
+3. **Closure Detection**: The firmware **never receives a "Lock" command**. Locking is 100% mechanical. The solenoid lock unit contains an integrated feedback signal switch (sensing bolt retraction and latch engagement). The firmware detects closure via this solenoid feedback pin and immediately posts a telemetry event.
+4. **Push-to-Lock User Experience**:
+   - Customer taps "Unlock" in Mobile App -> Cloud queues command -> ESP32 consumes command -> Fires relay HIGH for 3.0 seconds -> Solenoid retracts bolt and pops door open.
+   - Solenoid internal feedback signal switches to `open` -> ESP32 posts `{ doorState: "open" }`.
+   - Courier puts parcel inside box and **pushes door shut** (click!).
+   - Solenoid spring-latch catches into the strike pocket mechanically -> Solenoid feedback signal triggers -> ESP32 posts `{ doorState: "closed" }`.
+   - Backend logs successful delivery and notifies the user.
 
 ---
 

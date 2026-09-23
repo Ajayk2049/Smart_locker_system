@@ -53,8 +53,12 @@ export default function Home() {
   const [boxView, setBoxView] = useState<ViewState | null>(null);
   const [isBoxAnimatingOut, setIsBoxAnimatingOut] = useState(false);
   const [animationStyle, setAnimationStyle] = useState<string>("slide-right");
+  const [profileMode, setProfileMode] = useState<"login" | "register">("login");
 
-  const transitionTo = (newView: ViewState) => {
+  const transitionTo = (newView: ViewState, authMode?: "login" | "register") => {
+    if (authMode) {
+      setProfileMode(authMode);
+    }
     if (newView === view) return;
 
     const nextStyle = ANIMATION_STYLES[Math.floor(Math.random() * ANIMATION_STYLES.length)];
@@ -135,18 +139,28 @@ export default function Home() {
             </a>
 
             <a
-              href="#profile"
+              href="#signin"
               onClick={(e) => {
                 e.preventDefault();
-                transitionTo("profile");
+                transitionTo("profile", "login");
               }}
               className="relative py-[0.5vh] text-base md:text-[2.6vh] font-black text-[#3D2310] transition-colors duration-200 group"
             >
-              Profile
+              Sign In
               <span className={`absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] bg-[#3D2310] rounded-full transition-all duration-350 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] ${
-                view === "profile" ? "w-full" : "w-0 group-hover:w-full"
+                view === "profile" && profileMode === "login" ? "w-full" : "w-0 group-hover:w-full"
               }`} />
             </a>
+
+            <button
+              type="button"
+              onClick={() => {
+                transitionTo("profile", "register");
+              }}
+              className="px-3.5 py-1.5 md:px-5 md:py-2 bg-[#3D2310] text-[#FAF9F5] rounded-xl font-sans font-black text-sm md:text-[2.2vh] hover:bg-[#261508] transition-all duration-200 shadow-sm cursor-pointer hover:scale-105 active:scale-95 flex items-center gap-1"
+            >
+              Sign Up
+            </button>
           </nav>
         </header>
 
@@ -164,7 +178,7 @@ export default function Home() {
             <Hero 
               onExploreFeatures={() => transitionTo("features")}
               onHowItWorks={() => transitionTo("how-it-works")}
-              onOrderNow={() => transitionTo("profile")}
+              onOrderNow={() => transitionTo("profile", "register")}
             />
           </div>
 
@@ -180,7 +194,7 @@ export default function Home() {
               </BoxBgHorizontal>
             ) : boxView === "profile" ? (
               <ProfileBoxBg>
-                <Profile />
+                <Profile mode={profileMode} />
               </ProfileBoxBg>
             ) : (
               <BoxBg>

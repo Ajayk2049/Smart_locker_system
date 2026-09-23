@@ -78,11 +78,11 @@ export function DashboardView({
     }
   };
 
-  const loadRequests = useCallback(async () => {
-    setIsLoading(true);
+  const loadRequests = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
     const token = localStorage.getItem("admin_token");
     if (!token) {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
       return;
     }
 
@@ -104,14 +104,20 @@ export function DashboardView({
       setRequests(data.requests || []);
     } catch (err: any) {
       console.error("Error loading locker requests:", err);
-      showNotification(err.message || "Could not sync latest locker requests", true);
+      if (!silent) {
+        showNotification(err.message || "Could not sync latest locker requests", true);
+      }
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, [apiUrl, onLogout]);
 
   useEffect(() => {
-    loadRequests();
+    loadRequests(false);
+    const interval = setInterval(() => {
+      loadRequests(true);
+    }, 4000);
+    return () => clearInterval(interval);
   }, [loadRequests]);
 
   // Transition handlers
@@ -284,7 +290,7 @@ export function DashboardView({
         filterCounts={filterCounts}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6">
+      <main className="flex-1 w-full px-6 sm:px-8 lg:px-10 pt-2 pb-12 flex flex-col gap-6">
         <RequestsTable
           requests={filteredRequests}
           isLoading={isLoading}
@@ -369,15 +375,15 @@ export function DashboardView({
 
       {/* Notifications */}
       {actionSuccess && (
-        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-xs font-bold shadow-xl flex items-center gap-2.5 border border-slate-700 dark:border-slate-300">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600 shrink-0" />
+        <div className="fixed bottom-6 right-6 z-50 px-5 py-3.5 rounded-none bg-slate-900 text-white dark:bg-[#080D14] dark:text-slate-100 text-sm font-bold shadow-none flex items-center gap-3 border-2 border-[#00F5A0]">
+          <CheckCircle2 className="w-5 h-5 text-[#00F5A0] shrink-0" />
           <span>{actionSuccess}</span>
         </div>
       )}
 
       {actionError && (
-        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-xl bg-rose-600 text-white text-xs font-bold shadow-xl flex items-center gap-2.5">
-          <AlertCircle className="w-4 h-4 text-white shrink-0" />
+        <div className="fixed bottom-6 right-6 z-50 px-5 py-3.5 rounded-none bg-rose-600 text-white text-sm font-bold shadow-none flex items-center gap-3 border-2 border-rose-400">
+          <AlertCircle className="w-5 h-5 text-white shrink-0" />
           <span>{actionError}</span>
         </div>
       )}

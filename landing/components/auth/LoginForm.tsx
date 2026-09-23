@@ -28,6 +28,23 @@ export function LoginForm({
         subtitle="Manage your Secure Box"
       />
 
+      {/* Auth Tab Switcher */}
+      <div className="flex border border-[#3D2310]/30 bg-zinc-100 font-mono text-[10px] uppercase font-black tracking-wider mt-1 mb-1">
+        <button
+          type="button"
+          className="flex-1 py-1 bg-[#3D2310] text-[#FAF9F5] cursor-default text-center"
+        >
+          Sign In
+        </button>
+        <button
+          type="button"
+          onClick={onSwitchToRegister}
+          className="flex-1 py-1 text-[#3D2310] hover:bg-zinc-200 cursor-pointer text-center transition-colors"
+        >
+          Sign Up
+        </button>
+      </div>
+
       <form onSubmit={onSubmit} className="flex-1 flex flex-col justify-center py-2 space-y-3">
         {/* Identifier */}
         <div className="space-y-1 text-left">
@@ -91,14 +108,14 @@ export function LoginForm({
 
       {/* Switch to Register */}
       <div className="pt-2 border-t-2 border-dashed border-[#3D2310]/30 text-center">
-        <p className="text-[11px] text-zinc-600">
-          Need a Secure Box?{" "}
+        <p className="text-xs text-zinc-600">
+          Don&apos;t have an account?{" "}
           <button
             type="button"
             onClick={onSwitchToRegister}
-            className="font-bold text-[#3D2310] hover:underline underline-offset-2 ml-1 cursor-pointer"
+            className="font-black text-[#3D2310] underline underline-offset-2 hover:text-[#2B1810] ml-1 cursor-pointer"
           >
-            Order your locker now
+            Sign Up / Create Account
           </button>
         </p>
       </div>

@@ -6,9 +6,10 @@ import { Log } from "../models/Log.model.js";
 
 // 1. Get all locker requests / orders
 export async function getAllRequests(request: FastifyRequest, reply: FastifyReply) {
-  // Sync fallback: if users exist with orderStatus and no LockerRequest
+  // Sync fallback: only for customers who actually ordered with an address
   const usersWithOrders = await User.find({
-    orderStatus: { $exists: true },
+    orderStatus: { $exists: true, $ne: null },
+    address: { $exists: true, $ne: "" },
     role: { $ne: "admin" },
   });
 
@@ -34,7 +35,37 @@ export async function getAllRequests(request: FastifyRequest, reply: FastifyRepl
     .populate("userId", "name phone email address pincode units orderStatus")
     .sort({ createdAt: -1 });
 
-  return reply.send({ requests });
+  // Attach live device heartbeat and online status from Device model
+  const allAssignedIds = requests.flatMap((r) => r.assignedDeviceIds || []);
+  const devices = await Device.find({ deviceId: { $in: allAssignedIds } }).select(
+    "deviceId online lastHeartbeat doorState"
+  );
+  const deviceMap = new Map(devices.map((d) => [d.deviceId, d]));
+
+  const requestsWithStatus = requests.map((req) => {
+    const obj = req.toObject();
+    const assignedDevicesInfo = (req.assignedDeviceIds || []).map((id) => {
+      const d = deviceMap.get(id);
+      return {
+        deviceId: id,
+        online: d ? !!d.online : false,
+        lastHeartbeat: d ? d.lastHeartbeat : null,
+        doorState: d ? d.doorState : "closed",
+      };
+    });
+
+    const isDeviceOnline = assignedDevicesInfo.some((d) => d.online);
+    const lastHeartbeat = assignedDevicesInfo.find((d) => d.lastHeartbeat)?.lastHeartbeat || null;
+
+    return {
+      ...obj,
+      assignedDevicesInfo,
+      isDeviceOnline,
+      lastHeartbeat,
+    };
+  });
+
+  return reply.send({ requests: requestsWithStatus });
 }
 
 // 2. Update order lifecycle status (preparing, dispatched, delivered, rejected)

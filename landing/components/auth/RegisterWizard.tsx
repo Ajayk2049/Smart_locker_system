@@ -3,15 +3,10 @@ import {
   User,
   Phone,
   Mail,
-  Home,
-  MapPin,
   KeyRound,
-  Package,
   ArrowRight,
   ArrowLeft,
   Loader2,
-  Plus,
-  Minus,
   Check,
 } from "lucide-react";
 import { ShippingLabelHeader } from "./ShippingLabelHeader";
@@ -31,12 +26,8 @@ interface RegisterWizardProps {
   onPasswordChange: (val: string) => void;
   confirmPassword: string;
   onConfirmPasswordChange: (val: string) => void;
-  address: string;
-  onAddressChange: (val: string) => void;
-  pincode: string;
-  onPincodeChange: (val: string) => void;
-  units: number;
-  onUnitsChange: (val: number) => void;
+  inviteCode: string;
+  onInviteCodeChange: (val: string) => void;
   otpCooldown: number;
   loading: boolean;
   onSendOtp: () => void;
@@ -59,12 +50,8 @@ export function RegisterWizard({
   onPasswordChange,
   confirmPassword,
   onConfirmPasswordChange,
-  address,
-  onAddressChange,
-  pincode,
-  onPincodeChange,
-  units,
-  onUnitsChange,
+  inviteCode,
+  onInviteCodeChange,
   otpCooldown,
   loading,
   onSendOtp,
@@ -72,19 +59,34 @@ export function RegisterWizard({
   onSwitchToLogin,
 }: RegisterWizardProps) {
   const stepTitles: Record<number, { title: string; sub: string }> = {
-    1: { title: "Step 1: Recipient", sub: "Your contact details" },
+    1: { title: "Step 1: Recipient", sub: "Enter your contact details" },
     2: { title: "Step 2: Verification", sub: "Verify Indian mobile number" },
-    3: { title: "Step 3: Security", sub: "Set password for mobile app" },
-    4: { title: "Step 4: Destination", sub: "Doorstep installation address" },
-    5: { title: "Step 5: Units Order", sub: "Hardware order quantity" },
+    3: { title: "Step 3: Security", sub: "Create password & optional invite code" },
   };
 
   return (
     <div className="bg-[#FAF9F5] border-2 border-[#3D2310]/35 p-4 sm:p-5 text-[#3D2310] w-[94%] md:w-[90%] h-[94%] flex flex-col justify-between mx-auto my-auto overflow-hidden no-scrollbar shadow-none">
       <ShippingLabelHeader
-        title={stepTitles[step]?.title || "Order Locker"}
+        title={stepTitles[step]?.title || "Create Account"}
         subtitle={stepTitles[step]?.sub || "Step-wise configuration"}
       />
+
+      {/* Auth Tab Switcher */}
+      <div className="flex border border-[#3D2310]/30 bg-zinc-100 font-mono text-[10px] uppercase font-black tracking-wider mt-1 mb-1">
+        <button
+          type="button"
+          onClick={onSwitchToLogin}
+          className="flex-1 py-1 text-[#3D2310] hover:bg-zinc-200 cursor-pointer text-center transition-colors"
+        >
+          Sign In
+        </button>
+        <button
+          type="button"
+          className="flex-1 py-1 bg-[#3D2310] text-[#FAF9F5] cursor-default text-center"
+        >
+          Sign Up
+        </button>
+      </div>
 
       <form onSubmit={onSubmit} className="flex-1 flex flex-col justify-center py-2 space-y-3">
         {/* Step 1: Name & Optional Email */}
@@ -92,7 +94,7 @@ export function RegisterWizard({
           <div className="space-y-3 text-left">
             <div className="space-y-1">
               <label className="font-mono text-[9px] font-black uppercase text-zinc-500 tracking-wider">
-                Full Name (Primary Owner)
+                Full Name
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
@@ -180,9 +182,9 @@ export function RegisterWizard({
           </div>
         )}
 
-        {/* Step 3: Password */}
+        {/* Step 3: Password & Optional Join Code */}
         {step === 3 && (
-          <div className="space-y-3 text-left">
+          <div className="space-y-2.5 text-left">
             <div className="space-y-1">
               <label className="font-mono text-[9px] font-black uppercase text-zinc-500 tracking-wider">
                 Create Master Password
@@ -218,86 +220,22 @@ export function RegisterWizard({
                 />
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Step 4: Address & Pincode */}
-        {step === 4 && (
-          <div className="space-y-3 text-left">
-            <div className="space-y-1">
-              <label className="font-mono text-[9px] font-black uppercase text-zinc-500 tracking-wider">
-                Doorstep / Flat Address
+            <div className="space-y-1 pt-0.5">
+              <label className="font-mono text-[9px] font-black uppercase text-amber-800 tracking-wider">
+                Join Code (Optional - For Co-Owners)
               </label>
-              <div className="relative">
-                <Home className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
-                <textarea
-                  rows={2}
-                  required
-                  disabled={loading}
-                  value={address}
-                  onChange={(e) => onAddressChange(e.target.value)}
-                  placeholder="Flat / Villa No., Apartment, Street, Landmark"
-                  className="w-full bg-white border-2 border-[#3D2310]/30 pl-9 pr-3 py-2 text-xs text-[#3D2310] placeholder-zinc-400 focus:outline-none focus:border-[#3D2310] font-sans resize-none"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="font-mono text-[9px] font-black uppercase text-zinc-500 tracking-wider">
-                Postal PIN Code (Bengaluru)
-              </label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                <input
-                  type="text"
-                  maxLength={6}
-                  required
-                  disabled={loading}
-                  value={pincode}
-                  onChange={(e) => onPincodeChange(e.target.value.replace(/\D/g, ""))}
-                  placeholder="e.g. 560001"
-                  className="w-full bg-white border-2 border-[#3D2310]/30 pl-9 pr-3 py-2 text-xs text-[#3D2310] placeholder-zinc-400 focus:outline-none focus:border-[#3D2310] font-mono"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Step 5: Units & Confirmation */}
-        {step === 5 && (
-          <div className="space-y-3 text-left">
-            <div className="space-y-1">
-              <label className="font-mono text-[9px] font-black uppercase text-zinc-500 tracking-wider">
-                Number of Lockers to Deploy
-              </label>
-              <div className="flex items-center justify-between bg-white border-2 border-[#3D2310]/30 p-2.5">
-                <span className="text-xs font-bold text-[#3D2310] font-mono flex items-center gap-2">
-                  <Package className="w-4 h-4 text-[#3D2310]" />
-                  Secure Box Standard Units
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onUnitsChange(Math.max(1, units - 1))}
-                    className="w-7 h-7 rounded border border-[#3D2310]/30 flex items-center justify-center text-[#3D2310] hover:bg-zinc-100 cursor-pointer"
-                  >
-                    <Minus className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="font-mono font-black text-sm w-6 text-center">{units}</span>
-                  <button
-                    type="button"
-                    onClick={() => onUnitsChange(Math.min(5, units + 1))}
-                    className="w-7 h-7 rounded border border-[#3D2310]/30 flex items-center justify-center text-[#3D2310] hover:bg-zinc-100 cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-2.5 bg-amber-50 border border-amber-600/20 text-[11px] text-[#3D2310] font-mono space-y-0.5">
-              <div>• Free doorstep installation & hardware setup</div>
-              <div>• 2 user slots included per box (Primary + Co-owner)</div>
+              <input
+                type="text"
+                disabled={loading}
+                value={inviteCode}
+                onChange={(e) => onInviteCodeChange(e.target.value.toUpperCase())}
+                placeholder="e.g. SBX-79A2"
+                className="w-full bg-white border-2 border-amber-600/30 px-3 py-1.5 text-xs text-[#3D2310] placeholder-zinc-400 focus:outline-none focus:border-amber-600 font-mono tracking-widest uppercase"
+              />
+              <span className="text-[10px] text-zinc-500 font-mono block">
+                Have a code from a family member? Enter it to share their locker.
+              </span>
             </div>
           </div>
         )}
@@ -316,15 +254,13 @@ export function RegisterWizard({
             </button>
           ) : <div />}
 
-          {step < 5 ? (
+          {step < 3 ? (
             <button
               type="button"
               disabled={loading}
               onClick={() => {
                 if (step === 1 && !name.trim()) return;
                 if (step === 2 && (!phone || phone.length !== 10 || !otp)) return;
-                if (step === 3 && (!password || password !== confirmPassword)) return;
-                if (step === 4 && (!address.trim() || pincode.length !== 6)) return;
                 onSetStep(step + 1);
               }}
               className="px-4 py-2 bg-[#3D2310] hover:bg-[#2B1810] text-[#FAF9F5] text-xs font-mono font-bold uppercase flex items-center gap-1 ml-auto cursor-pointer"
@@ -335,18 +271,18 @@ export function RegisterWizard({
           ) : (
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !password || password !== confirmPassword}
               className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-mono font-black uppercase flex items-center gap-1.5 ml-auto shadow-sm cursor-pointer disabled:opacity-50"
             >
               {loading ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Placing Order...</span>
+                  <span>Creating...</span>
                 </>
               ) : (
                 <>
                   <Check className="w-4 h-4 stroke-[3]" />
-                  <span>Confirm Order</span>
+                  <span>Create Account</span>
                 </>
               )}
             </button>

@@ -37,6 +37,14 @@ export interface LockerRequestItem {
   units: number;
   status: LockerRequestStatus;
   assignedDeviceIds: string[];
+  assignedDevicesInfo?: Array<{
+    deviceId: string;
+    online: boolean;
+    lastHeartbeat?: string | Date;
+    doorState?: string;
+  }>;
+  isDeviceOnline?: boolean;
+  lastHeartbeat?: string | Date;
   rejectionReason?: string;
   notes?: string;
   verificationNotes?: string;
@@ -64,31 +72,41 @@ export function RequestsTable({
   onOpenReject,
 }: RequestsTableProps) {
   return (
-    <div className="bg-white dark:bg-[#101522] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs text-slate-600 dark:text-slate-400">
-          <thead className="bg-slate-50/75 dark:bg-slate-900/50 text-[11px] uppercase tracking-wider font-bold text-slate-500 border-b border-slate-200 dark:border-slate-800">
+    <div className="w-full bg-white dark:bg-[#0D141F] rounded-none border-2 border-slate-200 dark:border-slate-800 shadow-none overflow-hidden">
+      <div className="overflow-x-auto no-scrollbar w-full">
+        <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300 table-auto">
+          <thead className="bg-slate-50 dark:bg-[#080D14] text-xs uppercase tracking-wider font-mono font-black text-slate-500 dark:text-slate-400 border-b-2 border-slate-200 dark:border-slate-800">
             <tr>
-              <th className="py-3 px-4">Order / Customer</th>
-              <th className="py-3 px-4">Contact</th>
-              <th className="py-3 px-4">Delivery Address</th>
-              <th className="py-3 px-4 text-center">Units</th>
-              <th className="py-3 px-4">Status</th>
-              <th className="py-3 px-4">Assigned Unit</th>
-              <th className="py-3 px-4 text-right">Lifecycle Actions</th>
+              <th className="py-3.5 px-5 min-w-[180px] w-[18%]">Order / Customer</th>
+              <th className="py-3.5 px-4 min-w-[140px] w-[14%]">Contact</th>
+              <th className="py-3.5 px-4 min-w-[200px] w-[22%]">Delivery Address</th>
+              <th className="py-3.5 px-4 min-w-[70px] w-[6%] text-center">Units</th>
+              <th className="py-3.5 px-4 min-w-[130px] w-[12%]">Status</th>
+              <th className="py-3.5 px-4 min-w-[110px] w-[10%]">Assigned Unit</th>
+              <th className="py-3.5 px-5 min-w-[220px] w-[18%] text-right">Lifecycle Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+          <tbody className="divide-y divide-slate-200 dark:divide-slate-800/80">
             {isLoading ? (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-slate-400 font-mono">
+                <td colSpan={7} className="py-20 text-center text-base text-[#00F5A0] font-mono font-bold">
                   Loading order pipeline...
                 </td>
               </tr>
             ) : requests.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-slate-400">
-                  No orders found matching the filter.
+                <td colSpan={7} className="py-20 text-center">
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <div className="w-14 h-14 rounded-none bg-slate-100 dark:bg-[#080D14] border-2 border-slate-300 dark:border-slate-800 flex items-center justify-center text-[#00F5A0]">
+                      <Package className="w-7 h-7 stroke-[2]" />
+                    </div>
+                    <div className="font-black text-base text-slate-900 dark:text-slate-100">
+                      No orders found matching this filter
+                    </div>
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400 max-w-md">
+                      Customer order requests placed via web or app will automatically appear here.
+                    </p>
+                  </div>
                 </td>
               </tr>
             ) : (
@@ -99,14 +117,14 @@ export function RequestsTable({
                 return (
                   <tr
                     key={req._id}
-                    className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors"
+                    className="hover:bg-slate-50/80 dark:hover:bg-[#080D14]/60 transition-colors"
                   >
                     {/* Customer */}
-                    <td className="py-4 px-4 align-top">
-                      <div className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                    <td className="py-4 px-5 align-top">
+                      <div className="font-black text-slate-900 dark:text-slate-100 text-base">
                         {req.name}
                       </div>
-                      <div className="text-[11px] text-slate-400 font-mono">
+                      <div className="text-xs text-slate-400 font-mono mt-0.5">
                         {new Date(req.createdAt).toLocaleDateString("en-IN", {
                           day: "numeric",
                           month: "short",
@@ -118,71 +136,71 @@ export function RequestsTable({
                     </td>
 
                     {/* Contact */}
-                    <td className="py-4 px-4 align-top font-mono text-xs">
-                      <div className="font-semibold text-slate-800 dark:text-slate-200">
+                    <td className="py-4 px-4 align-top font-mono text-sm">
+                      <div className="font-bold text-slate-900 dark:text-slate-100">
                         +91 {req.phone}
                       </div>
                       {req.email && (
-                        <div className="text-[11px] text-slate-400 truncate max-w-[170px]">
+                        <div className="text-xs text-slate-400 truncate max-w-[190px] mt-0.5">
                           {req.email}
                         </div>
                       )}
                     </td>
 
                     {/* Delivery Address */}
-                    <td className="py-4 px-4 align-top max-w-xs">
-                      <div className="text-xs text-slate-800 dark:text-slate-200 line-clamp-2">
+                    <td className="py-4 px-4 align-middle text-sm">
+                      <div className="text-sm font-medium text-slate-800 dark:text-slate-200 line-clamp-2">
                         {req.address}
                       </div>
-                      <div className="text-[11px] font-mono text-amber-700 dark:text-amber-400 font-bold mt-0.5">
+                      <div className="text-sm font-medium text-slate-800 dark:text-slate-200 mt-1 font-mono">
                         PIN: {req.pincode}
                       </div>
                     </td>
 
                     {/* Units */}
-                    <td className="py-4 px-4 align-top text-center">
-                      <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 font-mono text-xs font-bold text-slate-700 dark:text-slate-300">
+                    <td className="py-4 px-4 align-middle text-center">
+                      <span className="h-8 min-w-[36px] px-2.5 inline-flex items-center justify-center rounded-none bg-slate-100 dark:bg-[#080D14] border border-slate-300 dark:border-slate-800 font-mono text-xs font-black text-slate-900 dark:text-slate-100">
                         {req.units}
                       </span>
                     </td>
 
                     {/* Status Badge */}
-                    <td className="py-4 px-4 align-top">
+                    <td className="py-4 px-4 align-middle">
                       {normStatus === "pending" && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold font-mono bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
-                          <Clock className="w-3 h-3" /> PENDING
+                        <span className="h-8 px-3 inline-flex items-center justify-center gap-1.5 rounded-none text-xs font-black font-mono tracking-wider uppercase whitespace-nowrap bg-[#00F5A0]/20 dark:bg-[#00F5A0]/15 text-black dark:text-[#00F5A0] border border-[#00F5A0]/60 dark:border-[#00F5A0]/40">
+                          <Clock className="w-3.5 h-3.5 stroke-[2.5]" /> PENDING
                         </span>
                       )}
                       {normStatus === "preparing" && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold font-mono bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/30">
-                          <Package className="w-3 h-3" /> PREPARING
+                        <span className="h-8 px-3 inline-flex items-center justify-center gap-1.5 rounded-none text-xs font-black font-mono tracking-wider uppercase whitespace-nowrap bg-[#00F5A0]/25 dark:bg-[#00F5A0]/15 text-black dark:text-[#00F5A0] border border-[#00F5A0]/70 dark:border-[#00F5A0]/50">
+                          <Package className="w-3.5 h-3.5 stroke-[2.5]" /> PREPARING
                         </span>
                       )}
                       {normStatus === "dispatched" && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold font-mono bg-purple-500/15 text-purple-700 dark:text-purple-400 border border-purple-500/30">
-                          <Truck className="w-3.5 h-3.5" /> DISPATCHED
+                        <span className="h-8 px-3 inline-flex items-center justify-center gap-1.5 rounded-none text-xs font-black font-mono tracking-wider uppercase whitespace-nowrap bg-[#00F5A0]/30 dark:bg-[#00F5A0]/20 text-black dark:text-[#00F5A0] border border-[#00F5A0]/80 dark:border-[#00F5A0]/60">
+                          <Truck className="w-4 h-4 stroke-[2.5]" /> DISPATCHED
                         </span>
                       )}
                       {normStatus === "delivered" && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold font-mono bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> DELIVERED & LIVE
+                        <span className="h-8 px-3 inline-flex items-center justify-center gap-1.5 rounded-none text-xs font-black font-mono tracking-wider uppercase whitespace-nowrap bg-[#00F5A0] text-black border border-[#00F5A0]">
+                          <CheckCircle2 className="w-4 h-4 stroke-[3]" /> DELIVERED
                         </span>
                       )}
                       {normStatus === "rejected" && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold font-mono bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30">
-                          <XCircle className="w-3 h-3" /> REJECTED
+                        <span className="h-8 px-3 inline-flex items-center justify-center gap-1.5 rounded-none text-xs font-black font-mono tracking-wider uppercase whitespace-nowrap bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/40">
+                          <XCircle className="w-3.5 h-3.5 stroke-[2.5]" /> REJECTED
                         </span>
                       )}
                     </td>
 
                     {/* Assigned Device */}
-                    <td className="py-4 px-4 align-top">
+                    <td className="py-4 px-4 align-middle">
                       {req.assignedDeviceIds && req.assignedDeviceIds.length > 0 ? (
-                        <span className="font-mono text-xs font-black bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 px-2 py-1 rounded border border-emerald-500/30">
+                        <span className="h-8 px-2.5 inline-flex items-center justify-center font-mono text-xs font-black bg-[#00F5A0]/20 dark:bg-[#00F5A0]/15 text-black dark:text-[#00F5A0] border border-[#00F5A0]/60 dark:border-[#00F5A0]/40 rounded-none whitespace-nowrap">
                           {req.assignedDeviceIds.join(", ")}
                         </span>
                       ) : normStatus === "rejected" ? (
-                        <span className="text-xs text-rose-600 dark:text-rose-400 italic">
+                        <span className="text-xs text-rose-500 italic">
                           {req.rejectionReason || "Declined"}
                         </span>
                       ) : (
@@ -191,67 +209,67 @@ export function RequestsTable({
                     </td>
 
                     {/* Lifecycle Actions */}
-                    <td className="py-4 px-4 align-top text-right">
+                    <td className="py-4 px-5 align-middle text-right">
                       {normStatus === "pending" && (
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-2.5">
                           <button
                             onClick={() => onOpenReject(req)}
-                            className="px-2.5 py-1.5 rounded-lg border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-semibold transition-colors cursor-pointer"
+                            className="h-10 px-4 rounded-none border border-rose-500/50 text-rose-500 hover:bg-rose-500/10 text-xs font-black uppercase tracking-wider whitespace-nowrap inline-flex items-center justify-center transition-colors cursor-pointer"
                           >
                             Reject
                           </button>
                           <button
                             onClick={() => onOpenPrepare(req)}
-                            className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1"
+                            className="h-10 px-5 rounded-none bg-[#00F5A0] hover:bg-[#00DE90] text-black font-black text-xs uppercase tracking-wider whitespace-nowrap shadow-none transition-all cursor-pointer inline-flex items-center justify-center gap-2"
                           >
-                            <Check className="w-3.5 h-3.5 stroke-[3]" />
-                            <span>Accept & Prepare</span>
+                            <Check className="w-4 h-4 stroke-[3] shrink-0" />
+                            <span className="whitespace-nowrap">Accept & Prepare</span>
                           </button>
                         </div>
                       )}
 
                       {normStatus === "preparing" && (
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end">
                           <button
                             onClick={() => onOpenDispatch(req)}
-                            className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                            className="h-10 px-5 rounded-none bg-[#00F5A0] hover:bg-[#00DE90] text-black font-black text-xs uppercase tracking-wider whitespace-nowrap shadow-none transition-all cursor-pointer inline-flex items-center justify-center gap-2"
                           >
-                            <Truck className="w-3.5 h-3.5" />
-                            <span>Dispatch Order</span>
+                            <Truck className="w-4 h-4 shrink-0" />
+                            <span className="whitespace-nowrap">Dispatch Order</span>
                           </button>
                         </div>
                       )}
 
                       {normStatus === "dispatched" && (
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end">
                           <button
                             onClick={() => onOpenDeliver(req)}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                            className="h-10 px-5 rounded-none bg-[#00F5A0] hover:bg-[#00DE90] text-black font-black text-xs uppercase tracking-wider whitespace-nowrap shadow-none transition-all cursor-pointer inline-flex items-center justify-center gap-2"
                           >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Verify Call & Mark Live</span>
+                            <CheckCircle2 className="w-4 h-4 stroke-[3] shrink-0" />
+                            <span className="whitespace-nowrap">Verify Call & Mark Live</span>
                           </button>
                         </div>
                       )}
 
                       {normStatus === "delivered" && (
-                        <div className="text-right">
-                          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center justify-end gap-1">
-                            <ShieldCheck className="w-3.5 h-3.5" /> Live & Active
-                          </span>
-                          {req.verificationNotes && (
-                            <p
-                              className="text-[10px] text-slate-400 italic max-w-[200px] truncate ml-auto mt-0.5"
-                              title={req.verificationNotes}
-                            >
-                              {req.verificationNotes}
-                            </p>
+                        <div className="flex items-center justify-end">
+                          {req.isDeviceOnline ? (
+                            <span className="h-10 px-5 inline-flex items-center justify-center gap-2 text-xs font-mono font-black uppercase tracking-wider whitespace-nowrap text-black bg-[#00F5A0] border border-[#00F5A0]">
+                              <span className="w-2.5 h-2.5 rounded-full bg-black animate-pulse" />
+                              <span>ONLINE</span>
+                            </span>
+                          ) : (
+                            <span className="h-10 px-5 inline-flex items-center justify-center gap-2 text-xs font-mono font-black uppercase tracking-wider whitespace-nowrap bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/50">
+                              <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                              <span>OFFLINE</span>
+                            </span>
                           )}
                         </div>
                       )}
 
                       {normStatus === "rejected" && (
-                        <span className="text-xs text-slate-400">Closed</span>
+                        <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Closed</span>
                       )}
                     </td>
                   </tr>

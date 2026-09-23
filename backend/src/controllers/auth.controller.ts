@@ -146,6 +146,8 @@ export async function registerWithOtp(request: FastifyRequest, reply: FastifyRep
   otpRecord.verified = true;
   await Otp.deleteOne({ _id: otpRecord._id });
 
+  const isPlacingOrder = Boolean(address && address.trim());
+
   const userData: any = {
     phone: cleanPhone,
     name: name ? name.trim() : undefined,
@@ -153,25 +155,29 @@ export async function registerWithOtp(request: FastifyRequest, reply: FastifyRep
     role: "user",
     isPhoneVerified: true,
     isDemo: cleanPhone === "9876543210",
-    orderStatus: "pending",
   };
   if (email && email.trim()) userData.email = email.toLowerCase().trim();
-  if (address && address.trim()) userData.address = address.trim();
-  if (pincode && pincode.trim()) userData.pincode = pincode.trim();
-  if (units) userData.units = Number(units) || 1;
+  if (isPlacingOrder) {
+    userData.address = address!.trim();
+    if (pincode && pincode.trim()) userData.pincode = pincode.trim();
+    userData.units = units ? Number(units) || 1 : 1;
+    userData.orderStatus = "pending";
+  }
 
   const newUser = await User.create(userData);
 
-  // Automatically create a Locker Delivery Request
-  await createLockerOrderRequest({
-    userId: newUser._id,
-    name: newUser.name,
-    phone: newUser.phone,
-    email: newUser.email,
-    address: newUser.address,
-    pincode: newUser.pincode,
-    units: newUser.units,
-  });
+  // Only create a Locker Delivery Request if user explicitly ordered with address
+  if (isPlacingOrder) {
+    await createLockerOrderRequest({
+      userId: newUser._id,
+      name: newUser.name,
+      phone: newUser.phone,
+      email: newUser.email,
+      address: newUser.address,
+      pincode: newUser.pincode,
+      units: newUser.units,
+    });
+  }
 
   // Handle optional Join Code
   let joinedDevice = null;
@@ -197,8 +203,8 @@ export async function registerWithOtp(request: FastifyRequest, reply: FastifyRep
       role: newUser.role,
       address: newUser.address,
       pincode: newUser.pincode,
-      units: newUser.units || 1,
-      orderStatus: newUser.orderStatus || "pending",
+      units: newUser.units,
+      orderStatus: newUser.orderStatus,
       assignedDevices: newUser.assignedDevices || [],
     },
     token,
@@ -286,8 +292,8 @@ export async function getMe(request: FastifyRequest, reply: FastifyReply) {
       role: user.role,
       address: user.address,
       pincode: user.pincode,
-      units: user.units || 1,
-      orderStatus: latestRequest?.status || user.orderStatus || "pending",
+      units: latestRequest?.units || user.units,
+      orderStatus: latestRequest?.status || user.orderStatus,
       assignedDevices: latestRequest?.assignedDeviceIds || user.assignedDevices || [],
       requestDetails: latestRequest
         ? {
@@ -298,6 +304,66 @@ export async function getMe(request: FastifyRequest, reply: FastifyReply) {
             createdAt: latestRequest.createdAt,
           }
         : null,
+    },
+  });
+}
+
+// 6. Authenticated User Places a Locker Order
+export async function placeOrder(request: FastifyRequest, reply: FastifyReply) {
+  const authUser = request.user as { id: string };
+  if (!authUser?.id) {
+    return reply.status(401).send({ error: "Unauthorized" });
+  }
+
+  const { address, pincode, units } = (request.body as {
+    address?: string;
+    pincode?: string;
+    units?: number;
+  }) || {};
+
+  if (!address || !address.trim()) {
+    return reply.status(400).send({ error: "Doorstep delivery address is required" });
+  }
+
+  const cleanPincode = (pincode || "").trim();
+  const orderUnits = units ? Number(units) || 1 : 1;
+
+  const user = await User.findById(authUser.id);
+  if (!user) {
+    return reply.status(404).send({ error: "User not found" });
+  }
+
+  user.address = address.trim();
+  if (cleanPincode) user.pincode = cleanPincode;
+  user.units = orderUnits;
+  user.orderStatus = "pending";
+  await user.save();
+
+  const lockerReq = await createLockerOrderRequest({
+    userId: user._id,
+    name: user.name,
+    phone: user.phone,
+    email: user.email,
+    address: user.address,
+    pincode: user.pincode,
+    units: user.units,
+  });
+
+  return reply.status(201).send({
+    success: true,
+    message: "Order placed successfully! In queue for hub preparation.",
+    order: lockerReq,
+    user: {
+      id: user._id,
+      phone: user.phone,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      address: user.address,
+      pincode: user.pincode,
+      units: user.units,
+      orderStatus: user.orderStatus,
+      assignedDevices: user.assignedDevices || [],
     },
   });
 }
