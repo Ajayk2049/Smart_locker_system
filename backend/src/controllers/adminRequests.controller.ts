@@ -100,8 +100,24 @@ export async function updateRequestStatus(request: FastifyRequest, reply: Fastif
 
     const cleanDeviceId = targetDeviceId.trim().toUpperCase();
 
+    // Check if device is already assigned to another customer's order
+    const existingReqWithDevice = await LockerRequest.findOne({
+      _id: { $ne: lockerReq._id },
+      assignedDeviceIds: cleanDeviceId,
+    });
+    if (existingReqWithDevice) {
+      return reply.status(409).send({
+        error: `Device "${cleanDeviceId}" is already assigned to ${existingReqWithDevice.name} (${existingReqWithDevice.phone})! Please assign a different unit.`,
+      });
+    }
+
     let device = await Device.findOne({ deviceId: cleanDeviceId });
     if (device) {
+      if (device.ownerId && device.ownerId.toString() !== lockerReq.userId.toString()) {
+        return reply.status(409).send({
+          error: `Device "${cleanDeviceId}" is already registered to another customer! Please assign an available unit.`,
+        });
+      }
       device.ownerId = lockerReq.userId;
       await device.save();
     } else {

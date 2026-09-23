@@ -36,10 +36,10 @@ class AuthViewModel extends ChangeNotifier {
       notifyListeners();
       return response;
     } catch (e) {
-      _error = e.toString();
+      _error = e.toString().replaceAll('Exception: ', '').trim();
       _loading = false;
       notifyListeners();
-      return {'success': false, 'error': e.toString()};
+      return {'success': false, 'error': _error};
     }
   }
 
@@ -69,7 +69,7 @@ class AuthViewModel extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      _error = e.toString();
+      _error = e.toString().replaceAll('Exception: ', '').trim();
       _loading = false;
       notifyListeners();
       return false;
@@ -90,7 +90,7 @@ class AuthViewModel extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      _error = e.toString();
+      _error = e.toString().replaceAll('Exception: ', '').trim();
       _loading = false;
       notifyListeners();
       return false;

@@ -7,11 +7,13 @@ class ApiService {
   factory ApiService() => _instance;
   ApiService._internal();
 
-  final Dio _dio = Dio(BaseOptions(
-    baseUrl: AppConfig.baseUrl,
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 10),
-  ));
+  Dio get _client {
+    return Dio(BaseOptions(
+      baseUrl: AppConfig.baseUrl,
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
+    ));
+  }
 
   final SecureStorage _storage = SecureStorage();
 
@@ -19,6 +21,8 @@ class ApiService {
     final token = await _storage.getToken();
     final dio = Dio(BaseOptions(
       baseUrl: AppConfig.baseUrl,
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
       headers: {
         if (token != null) 'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -27,10 +31,53 @@ class ApiService {
     return dio;
   }
 
+  // 0. Quick local Wi-Fi connection check
+  Future<bool> checkHealth([String? host]) async {
+    final targetUrl = host != null
+        ? 'http://${host.replaceAll('http://', '').replaceAll('/', '')}/api/health'
+        : '${AppConfig.baseUrl}/api/health';
+    try {
+      final res = await Dio(BaseOptions(connectTimeout: const Duration(seconds: 4)))
+          .get(targetUrl);
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // Helper to extract clean, friendly error messages from Dio exceptions
+  String extractErrorMessage(dynamic error, [String defaultMessage = 'An unexpected error occurred']) {
+    if (error is DioException) {
+      if (error.response?.data != null) {
+        final data = error.response!.data;
+        if (data is Map) {
+          if (data['error'] != null && data['error'].toString().isNotEmpty) {
+            return data['error'].toString();
+          }
+          if (data['message'] != null && data['message'].toString().isNotEmpty) {
+            return data['message'].toString();
+          }
+        } else if (data is String && data.isNotEmpty) {
+          return data;
+        }
+      }
+      if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.receiveTimeout ||
+          error.type == DioExceptionType.sendTimeout) {
+        return 'Connection timed out. Check your local Wi-Fi and server IP.';
+      }
+      if (error.type == DioExceptionType.connectionError) {
+        return 'Cannot connect to server at ${AppConfig.baseUrl}. Please verify your Wi-Fi network and IP settings.';
+      }
+    }
+    final str = error.toString().replaceAll('Exception: ', '').trim();
+    return str.isNotEmpty ? str : defaultMessage;
+  }
+
   // 1. Smart Pre-Check & Send OTP
   Future<Map<String, dynamic>> sendOtp(String phone) async {
     try {
-      final response = await _dio.post('/api/auth/send-otp', data: {
+      final response = await _client.post('/api/auth/send-otp', data: {
         'phone': phone,
       });
       return response.data;
@@ -38,7 +85,7 @@ class ApiService {
       if (e.response != null && e.response!.data is Map) {
         return Map<String, dynamic>.from(e.response!.data);
       }
-      rethrow;
+      throw Exception(extractErrorMessage(e, 'Failed to send OTP code'));
     }
   }
 
@@ -50,61 +97,109 @@ class ApiService {
     String? name,
     String? inviteCode,
   }) async {
-    final response = await _dio.post('/api/auth/register-with-otp', data: {
-      'phone': phone,
-      'otp': otp,
-      'password': password,
-      if (name != null && name.isNotEmpty) 'name': name,
-      if (inviteCode != null && inviteCode.isNotEmpty) 'inviteCode': inviteCode,
-    });
-    return response.data;
+    try {
+      final response = await _client.post('/api/auth/register-with-otp', data: {
+        'phone': phone,
+        'otp': otp,
+        'password': password,
+        if (name != null && name.isNotEmpty) 'name': name,
+        if (inviteCode != null && inviteCode.isNotEmpty) 'inviteCode': inviteCode,
+      });
+      return response.data;
+    } on DioException catch (e) {
+      throw Exception(extractErrorMessage(e, 'Registration failed'));
+    }
   }
 
   // 3. Login (Phone or Email + Password)
   Future<Map<String, dynamic>> login(String identifier, String password) async {
-    final response = await _dio.post('/api/auth/login', data: {
-      'identifier': identifier,
-      'password': password,
-    });
-    return response.data;
+    try {
+      final response = await _client.post('/api/auth/login', data: {
+        'identifier': identifier,
+        'password': password,
+      });
+      return response.data;
+    } on DioException catch (e) {
+      throw Exception(extractErrorMessage(e, 'Invalid mobile number/email or password'));
+    }
   }
 
   // 4. Device Management
   Future<List<dynamic>> getDevices() async {
-    final dio = await authDio;
-    final response = await dio.get('/api/devices');
-    return response.data['devices'];
+    try {
+      final dio = await authDio;
+      final response = await dio.get('/api/devices');
+      return response.data['devices'];
+    } on DioException catch (e) {
+      throw Exception(extractErrorMessage(e, 'Failed to load devices'));
+    }
+  }
+
+  Future<Map<String, dynamic>> pairDevice({
+    required String deviceId,
+    required String name,
+  }) async {
+    try {
+      final dio = await authDio;
+      final response = await dio.post('/api/devices', data: {
+        'deviceId': deviceId.trim().toUpperCase(),
+        'name': name.trim(),
+      });
+      return response.data;
+    } on DioException catch (e) {
+      throw Exception(extractErrorMessage(e, 'Failed to link locker device'));
+    }
   }
 
   Future<void> unlockDevice(String deviceId) async {
-    final dio = await authDio;
-    await dio.post('/api/devices/$deviceId/unlock', data: {});
+    try {
+      final dio = await authDio;
+      await dio.post('/api/devices/$deviceId/unlock', data: {});
+    } on DioException catch (e) {
+      throw Exception(extractErrorMessage(e, 'Failed to unlock device'));
+    }
   }
 
   Future<List<dynamic>> getDeviceLogs(String deviceId) async {
-    final dio = await authDio;
-    final response = await dio.get('/api/devices/$deviceId/logs');
-    return response.data['logs'];
+    try {
+      final dio = await authDio;
+      final response = await dio.get('/api/devices/$deviceId/logs');
+      return response.data['logs'];
+    } on DioException catch (e) {
+      throw Exception(extractErrorMessage(e, 'Failed to load device logs'));
+    }
   }
 
   // 5. Join Code Co-Owner System
   Future<Map<String, dynamic>> createInviteCode(String deviceId) async {
-    final dio = await authDio;
-    final response = await dio.post('/api/devices/$deviceId/invite', data: {});
-    return response.data;
+    try {
+      final dio = await authDio;
+      final response = await dio.post('/api/devices/$deviceId/invite', data: {});
+      return response.data;
+    } on DioException catch (e) {
+      throw Exception(extractErrorMessage(e, 'Failed to create invite code'));
+    }
   }
 
   Future<Map<String, dynamic>> joinDevice(String inviteCode) async {
-    final dio = await authDio;
-    final response = await dio.post('/api/devices/join', data: {
-      'inviteCode': inviteCode,
-    });
-    return response.data;
+    try {
+      final dio = await authDio;
+      final response = await dio.post('/api/devices/join', data: {
+        'inviteCode': inviteCode,
+      });
+      return response.data;
+    } on DioException catch (e) {
+      throw Exception(extractErrorMessage(e, 'Failed to join locker'));
+    }
   }
 
   Future<Map<String, dynamic>> getDeviceSlots(String deviceId) async {
-    final dio = await authDio;
-    final response = await dio.get('/api/devices/$deviceId/slots');
-    return response.data;
+    try {
+      final dio = await authDio;
+      final response = await dio.get('/api/devices/$deviceId/slots');
+      return response.data;
+    } on DioException catch (e) {
+      throw Exception(extractErrorMessage(e, 'Failed to load locker access slots'));
+    }
   }
 }

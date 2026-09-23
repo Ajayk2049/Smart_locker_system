@@ -140,6 +140,40 @@ class HomeViewModel extends ChangeNotifier {
     }
   }
 
+  Future<void> pairNewDevice(String deviceId, String name) async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      await _api.pairDevice(deviceId: deviceId, name: name);
+      await fetchDevices();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> joinDeviceViaCode(String inviteCode) async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      await _api.joinDevice(inviteCode);
+      await fetchDevices();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
   void clearError() {
     _error = null;
     notifyListeners();

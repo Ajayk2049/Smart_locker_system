@@ -307,13 +307,19 @@ export function DashboardView({
           requests={filteredRequests}
           isLoading={isLoading}
           onOpenPrepare={(req) => {
+            const usedIds = new Set(requests.flatMap((r) => r.assignedDeviceIds || []));
+            let nextNum = 1;
+            while (usedIds.has(`BOX_${String(nextNum).padStart(3, "0")}`)) {
+              nextNum++;
+            }
+            const nextSuggestedId = `BOX_${String(nextNum).padStart(3, "0")}`;
             setPrepareModalData({
               requestId: req._id,
               customerName: req.name,
               units: req.units,
-              suggestedDeviceId: "BOX_001",
+              suggestedDeviceId: nextSuggestedId,
             });
-            setAssignDeviceIdInput("BOX_001");
+            setAssignDeviceIdInput(nextSuggestedId);
             setPrepareNotesInput("");
           }}
           onOpenDispatch={(req) => {
