@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import mongoose from "mongoose";
 import { Device } from "../models/Device.model.js";
+import { User } from "../models/User.model.js";
 import { Log } from "../models/Log.model.js";
 import { commandQueueService } from "../services/commandQueue.service.js";
 import { wsService } from "../services/websocket.service.js";
@@ -87,24 +88,41 @@ export async function unlockDevice(request: FastifyRequest, reply: FastifyReply)
     return reply.status(403).send({ error: "Not authorized to unlock this device" });
   }
 
+  const isOwner = device.ownerId.toString() === user.id;
+  const dbUser = await User.findById(user.id);
+  const userName = dbUser?.name || dbUser?.email || "User";
+  const userRole = isOwner ? "Owner" : "Co-Owner";
+
   const enqueued = commandQueueService.enqueueCommand(device.deviceId, "unlock");
 
   await Log.create({
     deviceId: device._id,
-    action: "unlock_command",
-    metadata: { triggeredBy: user.id, commandId: enqueued.commandId },
+    action: "unlock",
+    metadata: {
+      triggeredBy: user.id,
+      userName,
+      userRole,
+      userPhone: dbUser?.phone,
+      commandId: enqueued.commandId,
+      source: "mobile_app",
+      deviceId: device.deviceId,
+    },
   });
 
   wsService.broadcastToDevice(device.deviceId, {
     type: "UNLOCK_COMMAND",
     deviceId: device.deviceId,
     commandId: enqueued.commandId,
+    unlockedBy: userName,
+    userRole,
   });
 
   return reply.send({
     success: true,
     message: "Unlock command queued successfully for device",
     commandId: enqueued.commandId,
+    unlockedBy: userName,
+    userRole,
     device: {
       deviceId: device.deviceId,
       name: device.name,
@@ -119,7 +137,14 @@ export async function getDeviceLogs(request: FastifyRequest, reply: FastifyReply
   const { id } = request.params as { id: string };
   const user = request.user as { id: string };
 
-  const device = await Device.findById(id);
+  let device = null;
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    device = await Device.findById(id);
+  }
+  if (!device) {
+    device = await Device.findOne({ deviceId: id.toUpperCase() });
+  }
+
   if (!device) {
     return reply.status(404).send({ error: "Device not found" });
   }
@@ -128,7 +153,9 @@ export async function getDeviceLogs(request: FastifyRequest, reply: FastifyReply
     return reply.status(403).send({ error: "Not authorized" });
   }
 
-  const logs = await Log.find({ deviceId: id })
+  const logs = await Log.find({
+    $or: [{ deviceId: device._id }, { "metadata.deviceId": device.deviceId }],
+  })
     .sort({ timestamp: -1 })
     .limit(100);
 

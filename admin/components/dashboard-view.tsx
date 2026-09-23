@@ -43,6 +43,8 @@ export function DashboardView({
   const [rejectModalData, setRejectModalData] = useState<{ requestId: string; customerName: string } | null>(null);
   const [rejectionReasonInput, setRejectionReasonInput] = useState("");
 
+  const [simulatorModalData, setSimulatorModalData] = useState<{ deviceId: string; customerName: string } | null>(null);
+
   // Feedback notifications
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -345,6 +347,12 @@ export function DashboardView({
             });
             setRejectionReasonInput("");
           }}
+          onSimulateDevice={(req, deviceId) => {
+            setSimulatorModalData({
+              deviceId,
+              customerName: req.name,
+            });
+          }}
         />
       </main>
 
@@ -372,6 +380,8 @@ export function DashboardView({
         onRejectionReasonChange={setRejectionReasonInput}
         onCloseReject={() => setRejectModalData(null)}
         onConfirmReject={handleConfirmReject}
+        simulatorModalData={simulatorModalData}
+        onCloseSimulator={() => setSimulatorModalData(null)}
       />
 
       {/* Notifications */}

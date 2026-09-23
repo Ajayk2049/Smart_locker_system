@@ -19,6 +19,22 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final auth = context.read<AuthViewModel>();
+        if (auth.savedIdentifier != null && auth.savedIdentifier!.isNotEmpty) {
+          _identifierController.text = auth.savedIdentifier!;
+        }
+        if (auth.savedPassword != null && auth.savedPassword!.isNotEmpty) {
+          _passwordController.text = auth.savedPassword!;
+        }
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _identifierController.dispose();
     _passwordController.dispose();

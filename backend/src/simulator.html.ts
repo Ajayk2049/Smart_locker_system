@@ -353,7 +353,7 @@ export const simulatorHtml = `<!DOCTYPE html>
     </div>
     <div class="device-strip">
       <label>Device ID:</label>
-      <input id="deviceIdInput" type="text" value="BOX_001" spellcheck="false" />
+      <input id="deviceIdInput" type="text" value="BOX_001" spellcheck="false" oninput="onDeviceIdInput()" onchange="onDeviceIdChange()" />
       <button id="powerBtn" class="btn-toggle-power" onclick="togglePower()">
         <span id="powerDot">●</span>
         <span id="powerText">Powered ON</span>
@@ -466,15 +466,49 @@ export const simulatorHtml = `<!DOCTYPE html>
       container.scrollTop = container.scrollHeight;
     }
 
+    function initDeviceIdFromUrl() {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const paramId = urlParams.get("deviceId") || urlParams.get("device") || urlParams.get("id");
+        if (paramId) {
+          const clean = paramId.trim().toUpperCase();
+          const inputEl = document.getElementById("deviceIdInput");
+          if (inputEl) inputEl.value = clean;
+          const badgeEl = document.getElementById("doorDeviceBadge");
+          if (badgeEl) badgeEl.innerText = clean;
+          document.title = "ESP32 Simulator (" + clean + ")";
+        }
+      } catch (e) {}
+    }
+
+    function onDeviceIdInput() {
+      const inputEl = document.getElementById("deviceIdInput");
+      const val = (inputEl ? inputEl.value : "").trim().toUpperCase() || "BOX_001";
+      const badgeEl = document.getElementById("doorDeviceBadge");
+      if (badgeEl) badgeEl.innerText = val;
+    }
+
+    function onDeviceIdChange() {
+      const id = getDeviceId();
+      document.title = "ESP32 Simulator (" + id + ")";
+      log("DEVICE", \`Target hardware unit switched to: \${id}\`, "boot");
+      sendTelemetry(doorState);
+      sendHeartbeat();
+    }
+
     function getDeviceId() {
-      const val = document.getElementById("deviceIdInput").value.trim().toUpperCase() || "BOX_001";
-      document.getElementById("doorDeviceBadge").innerText = val;
+      const inputEl = document.getElementById("deviceIdInput");
+      const val = (inputEl ? inputEl.value : "").trim().toUpperCase() || "BOX_001";
+      const badgeEl = document.getElementById("doorDeviceBadge");
+      if (badgeEl) badgeEl.innerText = val;
       return val;
     }
 
     // 1. Initial boot sync
     async function boot() {
+      initDeviceIdFromUrl();
       const id = getDeviceId();
+      document.title = "ESP32 Simulator (" + id + ")";
       log("BOOT", \`ESP32 System initialized. Device ID: \${id}\`, "boot");
       log("BOOT", \`Wi-Fi connected to Local Hub. Base URL: \${API_BASE}\`, "boot");
       

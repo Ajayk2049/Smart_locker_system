@@ -30,7 +30,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final home = context.watch<HomeViewModel>();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryTextColor = ParcelGlassColors.textPrimary(context);
     final secondaryTextColor = ParcelGlassColors.textSecondary(context);
 
@@ -58,160 +57,198 @@ class _HistoryScreenState extends State<HistoryScreen> {
             )
           : home.logs.isEmpty
               ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 380),
                     child: LiquidParcelCard(
-                      borderRadius: 24,
-                      padding: const EdgeInsets.all(32),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
+                      borderRadius: 22,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.history_toggle_off, size: 48, color: secondaryTextColor),
-                          const SizedBox(height: 14),
+                          Icon(Icons.history_toggle_off, color: secondaryTextColor, size: 22),
+                          const SizedBox(width: 12),
                           Text(
-                            'No Events Logged Yet',
+                            'No activity recorded yet',
                             style: TextStyle(
-                              color: primaryTextColor,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                              color: secondaryTextColor,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
                             ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Solenoid unlocks and courier door interactions will appear here in real-time.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: secondaryTextColor, fontSize: 12),
                           ),
                         ],
                       ),
                     ),
                   ),
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  itemCount: home.logs.length,
-                  itemBuilder: (context, index) {
-                    final log = home.logs[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: LiquidParcelCard(
-                        borderRadius: 18,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        child: Row(
-                          children: [
-                            _getActionIcon(log.action),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _getActionLabel(log.action),
-                                    style: TextStyle(
-                                      color: primaryTextColor,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    _formatTimestamp(log.timestamp),
-                                    style: TextStyle(
-                                      color: secondaryTextColor,
-                                      fontSize: 11,
-                                      fontFamily: 'monospace',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? Colors.black.withValues(alpha: 0.3)
-                                    : Colors.black.withValues(alpha: 0.05),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                log.action.toUpperCase(),
-                                style: TextStyle(
-                                  color: secondaryTextColor,
-                                  fontSize: 10,
-                                  fontFamily: 'monospace',
-                                  fontWeight: FontWeight.bold,
+              : Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 380),
+                    child: ListView.builder(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      itemCount: home.logs.length,
+                      itemBuilder: (context, index) {
+                        final log = home.logs[index];
+                        final actionLower = log.action.toLowerCase();
+                        final isUnlock = actionLower.contains('unlock');
+                        final isLock = actionLower.contains('lock') && !isUnlock;
+                        final isDoorOpen = actionLower == 'door_open';
+                        final isDelivery = actionLower.contains('delivery');
+
+                        final IconData icon = isUnlock
+                            ? Icons.lock_open_rounded
+                            : (isLock
+                                ? Icons.lock_rounded
+                                : (isDelivery
+                                    ? Icons.inventory_2_outlined
+                                    : (isDoorOpen ? Icons.sensor_door_outlined : Icons.history_rounded)));
+
+                        final Color iconColor = isUnlock
+                            ? ParcelGlassColors.mintSignal
+                            : (isLock
+                                ? ParcelGlassColors.accentBlue
+                                : (isDelivery
+                                    ? const Color(0xFF6366F1)
+                                    : (isDoorOpen ? ParcelGlassColors.amberSignal : ParcelGlassColors.slateSubtitle)));
+
+                        String title;
+                        if (isUnlock) {
+                          title = 'Locker Unlocked';
+                        } else if (isLock) {
+                          title = 'Locker Locked & Secured';
+                        } else if (isDoorOpen) {
+                          title = 'Door Sensor Opened';
+                        } else if (isDelivery) {
+                          title = 'Package Delivered & Locked';
+                        } else {
+                          title = log.action.replaceAll('_', ' ').toUpperCase();
+                        }
+
+                        final metadata = log.metadata ?? {};
+                        final String? actorName = metadata['userName']?.toString();
+                        final String? actorRole = metadata['userRole']?.toString();
+
+                        final timeClock =
+                            '${log.timestamp.hour.toString().padLeft(2, '0')}:${log.timestamp.minute.toString().padLeft(2, '0')}';
+                        final timeStr = _formatTimestamp(log.timestamp);
+
+                        return LiquidParcelCard(
+                          borderRadius: 22,
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: iconColor.withValues(alpha: 0.14),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  icon,
+                                  color: iconColor,
+                                  size: 20,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      title,
+                                      style: TextStyle(
+                                        color: primaryTextColor,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    if (actorName != null && actorName.isNotEmpty) ...[
+                                      Row(
+                                        children: [
+                                          Text(
+                                            'by $actorName',
+                                            style: TextStyle(
+                                              color: secondaryTextColor,
+                                              fontSize: 12.5,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          if (actorRole != null && actorRole.isNotEmpty) ...[
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                              decoration: BoxDecoration(
+                                                color: actorRole.toLowerCase().contains('owner') && !actorRole.toLowerCase().contains('co')
+                                                    ? ParcelGlassColors.mintSignal.withValues(alpha: 0.18)
+                                                    : ParcelGlassColors.accentBlue.withValues(alpha: 0.18),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                actorRole.toUpperCase(),
+                                                style: TextStyle(
+                                                  color: actorRole.toLowerCase().contains('owner') && !actorRole.toLowerCase().contains('co')
+                                                      ? const Color(0xFF047857)
+                                                      : ParcelGlassColors.accentBlue,
+                                                  fontSize: 9.5,
+                                                  fontWeight: FontWeight.w800,
+                                                  letterSpacing: 0.5,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                      const SizedBox(height: 3),
+                                    ],
+                                    Text(
+                                      '$timeStr at $timeClock',
+                                      style: TextStyle(
+                                        color: secondaryTextColor.withValues(alpha: 0.75),
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.white.withValues(alpha: 0.7)),
+                                ),
+                                child: Text(
+                                  timeClock,
+                                  style: TextStyle(
+                                    color: primaryTextColor,
+                                    fontSize: 11,
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 ),
     );
   }
 
-  Widget _getActionIcon(String action) {
-    IconData icon;
-    Color color;
-
-    switch (action.toLowerCase()) {
-      case 'unlock':
-        icon = Icons.lock_open;
-        color = ParcelGlassColors.mintSignal;
-        break;
-      case 'door_open':
-        icon = Icons.door_front_door;
-        color = ParcelGlassColors.amberSignal;
-        break;
-      case 'door_close':
-        icon = Icons.door_back_door;
-        color = Colors.lightBlueAccent;
-        break;
-      case 'delivery_success':
-        icon = Icons.check_circle;
-        color = ParcelGlassColors.mintSignal;
-        break;
-      default:
-        icon = Icons.info_outline;
-        color = Colors.grey;
-    }
-
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
-      child: Icon(icon, color: color, size: 20),
-    );
-  }
-
-  String _getActionLabel(String action) {
-    switch (action.toLowerCase()) {
-      case 'unlock':
-        return 'Solenoid Door Unlocked';
-      case 'door_open':
-        return 'Locker Door Opened';
-      case 'door_close':
-        return 'Locker Door Closed';
-      case 'delivery_success':
-        return 'Package Delivery Recorded';
-      default:
-        return action;
-    }
-  }
-
-  String _formatTimestamp(DateTime timestamp) {
+  String _formatTimestamp(DateTime dt) {
     final now = DateTime.now();
-    final diff = now.difference(timestamp);
-
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
-    if (diff.inDays < 1) return '${diff.inHours}h ago';
-    return '${timestamp.day}/${timestamp.month}/${timestamp.year} ${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
+    final isToday = dt.year == now.year && dt.month == now.month && dt.day == now.day;
+    if (isToday) return 'Today';
+    final yesterday = now.subtract(const Duration(days: 1));
+    final isYesterday = dt.year == yesterday.year && dt.month == yesterday.month && dt.day == yesterday.day;
+    if (isYesterday) return 'Yesterday';
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
   }
 }

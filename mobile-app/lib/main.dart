@@ -71,7 +71,7 @@ class SecureBoxApp extends StatelessWidget {
                 surface: const Color(0xFF1E150F),
               ),
             ),
-            initialRoute: '/login',
+            home: const AuthGate(),
             routes: {
               '/login': (context) => const LoginScreen(),
               '/register': (context) => const RegisterScreen(),
@@ -82,5 +82,31 @@ class SecureBoxApp extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthViewModel>();
+
+    if (!auth.initialized) {
+      return const Scaffold(
+        backgroundColor: ParcelGlassColors.kraftCanvas,
+        body: Center(
+          child: CircularProgressIndicator(
+            color: ParcelGlassColors.parcelBrown,
+          ),
+        ),
+      );
+    }
+
+    if (auth.isAuthenticated) {
+      return const HomeScreen();
+    }
+
+    return const LoginScreen();
   }
 }

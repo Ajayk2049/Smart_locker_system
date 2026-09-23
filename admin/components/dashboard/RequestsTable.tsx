@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   Check,
   ChevronDown,
+  Cpu,
 } from "lucide-react";
 
 export type LockerRequestStatus =
@@ -62,6 +63,7 @@ interface RequestsTableProps {
   onOpenDispatch: (item: LockerRequestItem) => void;
   onOpenDeliver: (item: LockerRequestItem) => void;
   onOpenReject: (item: LockerRequestItem) => void;
+  onSimulateDevice: (item: LockerRequestItem, deviceId: string) => void;
 }
 
 export function RequestsTable({
@@ -71,6 +73,7 @@ export function RequestsTable({
   onOpenDispatch,
   onOpenDeliver,
   onOpenReject,
+  onSimulateDevice,
 }: RequestsTableProps) {
   return (
     <div className="w-full bg-white dark:bg-[#0D141F] rounded-none border-2 border-slate-200 dark:border-slate-800 shadow-none overflow-hidden">
@@ -113,7 +116,7 @@ export function RequestsTable({
             ) : (
               requests.map((req) => {
                 const normStatus = req.status === "approved" ? "preparing" : req.status;
-                const assignedUnit = req.assignedDeviceIds?.[0] || "BOX_001";
+                const targetDeviceId = req.assignedDeviceIds?.[0] || null;
 
                 return (
                   <tr
@@ -214,7 +217,18 @@ export function RequestsTable({
                       {(normStatus === "pending" ||
                         normStatus === "preparing" ||
                         normStatus === "dispatched") && (
-                        <div className="flex items-center justify-end">
+                        <div className="flex items-center justify-end gap-2">
+                          {targetDeviceId && (
+                            <button
+                              type="button"
+                              onClick={() => onSimulateDevice(req, targetDeviceId)}
+                              title={`Launch hardware simulator for ${targetDeviceId}`}
+                              className="h-10 px-3 inline-flex items-center justify-center gap-1.5 rounded-none font-mono text-xs font-black uppercase tracking-wider bg-slate-900 dark:bg-black text-[#00F5A0] hover:bg-[#00F5A0] hover:text-black border border-[#00F5A0]/60 dark:border-[#00F5A0]/40 transition-colors shadow-none cursor-pointer whitespace-nowrap shrink-0"
+                            >
+                              <Cpu className="w-3.5 h-3.5 stroke-[2.5]" />
+                              <span>Simulate</span>
+                            </button>
+                          )}
                           <div className="relative inline-block">
                             <select
                               value=""
@@ -269,17 +283,29 @@ export function RequestsTable({
                       )}
 
                       {normStatus === "delivered" && (
-                        <div className="flex items-center justify-end">
+                        <div className="flex items-center justify-end gap-2">
                           {req.isDeviceOnline ? (
-                            <span className="h-10 px-5 inline-flex items-center justify-center gap-2 text-xs font-mono font-black uppercase tracking-wider whitespace-nowrap text-black bg-[#00F5A0] border border-[#00F5A0]">
-                              <span className="w-2.5 h-2.5 rounded-full bg-black animate-pulse" />
+                            <span className="h-10 px-3.5 inline-flex items-center justify-center gap-1.5 text-xs font-mono font-black uppercase tracking-wider whitespace-nowrap text-black bg-[#00F5A0] border border-[#00F5A0]">
+                              <span className="w-2 h-2 rounded-full bg-black animate-pulse" />
                               <span>ONLINE</span>
                             </span>
                           ) : (
-                            <span className="h-10 px-5 inline-flex items-center justify-center gap-2 text-xs font-mono font-black uppercase tracking-wider whitespace-nowrap bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/50">
-                              <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                            <span className="h-10 px-3.5 inline-flex items-center justify-center gap-1.5 text-xs font-mono font-black uppercase tracking-wider whitespace-nowrap bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/50">
+                              <span className="w-2 h-2 rounded-full bg-amber-500" />
                               <span>OFFLINE</span>
                             </span>
+                          )}
+
+                          {targetDeviceId && (
+                            <button
+                              type="button"
+                              onClick={() => onSimulateDevice(req, targetDeviceId)}
+                              title={`Launch hardware simulator for ${targetDeviceId}`}
+                              className="h-10 px-3.5 inline-flex items-center justify-center gap-1.5 rounded-none font-mono text-xs font-black uppercase tracking-wider bg-slate-900 dark:bg-black text-[#00F5A0] hover:bg-[#00F5A0] hover:text-black border border-[#00F5A0]/60 dark:border-[#00F5A0]/40 transition-colors shadow-none cursor-pointer whitespace-nowrap shrink-0"
+                            >
+                              <Cpu className="w-3.5 h-3.5 stroke-[2.5]" />
+                              <span>Simulate</span>
+                            </button>
                           )}
                         </div>
                       )}

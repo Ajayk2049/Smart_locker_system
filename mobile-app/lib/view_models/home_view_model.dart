@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/device.model.dart';
 import '../models/log.model.dart';
@@ -7,6 +8,7 @@ import '../services/websocket_service.dart';
 class HomeViewModel extends ChangeNotifier {
   final ApiService _api = ApiService();
   final WebSocketService _ws = WebSocketService();
+  Timer? _pollTimer;
 
   List<DeviceModel> _devices = [];
   List<LogModel> _logs = [];
@@ -35,24 +37,37 @@ class HomeViewModel extends ChangeNotifier {
       _handleWebSocketMessage(message);
     });
     fetchDevices();
+
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      _fetchDevicesSilent();
+    });
   }
 
   void _handleWebSocketMessage(Map<String, dynamic> message) {
-    final type = message['type'];
-    if (type == 'DEVICE_STATUS' || type == 'DOOR_OPEN' || type == 'DELIVERY_SUCCESS') {
-      final targetDeviceId = message['deviceId'];
-      final newDoorState = message['doorState'];
-      final isOnline = message['online'];
+    final type = message['type']?.toString();
+    if (type == 'DEVICE_STATUS' ||
+        type == 'DOOR_OPEN' ||
+        type == 'DELIVERY_SUCCESS' ||
+        type == 'DEVICE_ONLINE' ||
+        type == 'DEVICE_OFFLINE') {
+      final targetDeviceId = message['deviceId']?.toString();
+      final newDoorState = message['doorState']?.toString();
+      bool? isOnline = message['online'] as bool?;
+      if (type == 'DEVICE_ONLINE') isOnline = true;
+      if (type == 'DEVICE_OFFLINE') isOnline = false;
 
-      if (targetDeviceId != null && newDoorState != null) {
+      if (targetDeviceId != null) {
         bool updated = false;
+        final targetUpper = targetDeviceId.trim().toUpperCase();
         for (int i = 0; i < _devices.length; i++) {
-          if (_devices[i].id == targetDeviceId || _devices[i].deviceId == targetDeviceId) {
+          if (_devices[i].id.trim().toUpperCase() == targetUpper ||
+              _devices[i].deviceId.trim().toUpperCase() == targetUpper) {
             _devices[i] = DeviceModel(
               id: _devices[i].id,
               deviceId: _devices[i].deviceId,
               name: _devices[i].name,
-              doorState: newDoorState,
+              doorState: newDoorState ?? _devices[i].doorState,
               online: isOnline ?? _devices[i].online,
             );
             updated = true;
@@ -61,12 +76,44 @@ class HomeViewModel extends ChangeNotifier {
         if (updated) {
           notifyListeners();
         } else {
-          fetchDevices();
+          _fetchDevicesSilent();
         }
       } else {
-        fetchDevices();
+        _fetchDevicesSilent();
       }
     }
+  }
+
+  Future<void> _fetchDevicesSilent() async {
+    try {
+      final devicesData = await _api.getDevices();
+      final newDevices = devicesData
+          .map((json) => DeviceModel.fromJson(json))
+          .toList();
+
+      bool hasChange = false;
+      if (newDevices.length != _devices.length) {
+        hasChange = true;
+      } else {
+        for (int i = 0; i < newDevices.length; i++) {
+          if (newDevices[i].online != _devices[i].online ||
+              newDevices[i].doorState != _devices[i].doorState ||
+              newDevices[i].name != _devices[i].name) {
+            hasChange = true;
+            break;
+          }
+        }
+      }
+
+      if (hasChange) {
+        _devices = newDevices;
+        for (final d in _devices) {
+          _ws.joinRoom(d.id);
+          _ws.joinRoom(d.deviceId);
+        }
+        notifyListeners();
+      }
+    } catch (_) {}
   }
 
   Future<void> fetchDevices() async {
@@ -88,6 +135,11 @@ class HomeViewModel extends ChangeNotifier {
 
       _loading = false;
       notifyListeners();
+
+      if (_devices.isNotEmpty) {
+        final devId = _selectedDeviceId ?? _devices.first.deviceId;
+        fetchDeviceLogs(devId);
+      }
     } catch (e) {
       _error = e.toString();
       _loading = false;
@@ -114,7 +166,8 @@ class HomeViewModel extends ChangeNotifier {
 
     try {
       await _api.unlockDevice(deviceId);
-      // Auto-sync devices after a short delay
+      // Auto-sync devices and activity history logs
+      Future.delayed(const Duration(milliseconds: 600), () => fetchDeviceLogs(deviceId));
       Future.delayed(const Duration(milliseconds: 1500), () => fetchDevices());
       Future.delayed(const Duration(seconds: 4), () => fetchDevices());
     } catch (e) {
@@ -181,6 +234,7 @@ class HomeViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     _ws.dispose();
     super.dispose();
   }

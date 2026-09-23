@@ -124,6 +124,17 @@ class ApiService {
     }
   }
 
+  // 3b. Current Authenticated Profile (Session Check)
+  Future<Map<String, dynamic>> getMe() async {
+    try {
+      final dio = await authDio;
+      final response = await dio.get('/api/auth/me');
+      return response.data;
+    } on DioException catch (e) {
+      throw Exception(extractErrorMessage(e, 'Session expired. Please sign in again.'));
+    }
+  }
+
   // 4. Device Management
   Future<List<dynamic>> getDevices() async {
     try {

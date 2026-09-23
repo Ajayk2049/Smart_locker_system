@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../../config.dart';
 import '../../models/device.model.dart';
+import '../../models/log.model.dart';
 import '../../services/api_service.dart';
 import '../../view_models/auth_view_model.dart';
 import '../../view_models/home_view_model.dart';
+import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 import '../settings/settings_screen.dart';
 import '../widgets/add_locker_dialog.dart';
 import '../widgets/glass_theme.dart';
 import '../widgets/liquid_slide_to_unlock.dart';
-import '../widgets/network_host_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -170,91 +170,139 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return ParcelGlassScaffold(
-      bottomNavigationBar: _buildLiquidBottomNav(),
-      child: SafeArea(
-        child: IndexedStack(
-          index: _currentTab,
-          children: [
-            _buildHomeTab(),
-            _buildHistoryTab(),
-            SettingsScreen(onBackToHome: () => setState(() => _currentTab = 0)),
-          ],
-        ),
+      child: Stack(
+        children: [
+          SafeArea(
+            child: IndexedStack(
+              index: _currentTab,
+              children: [
+                _buildHomeTab(),
+                _buildHistoryTab(),
+                SettingsScreen(onBackToHome: () => setState(() => _currentTab = 0)),
+              ],
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              top: false,
+              child: _buildLiquidBottomNav(),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildLiquidBottomNav() {
-    return Padding(
-      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 18),
-      child: SizedBox(
-        height: 70,
-        child: LiquidParcelCard(
-          borderRadius: 35,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          margin: EdgeInsets.zero,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(
-                index: 0,
-                icon: Icons.home_outlined,
-                activeIcon: Icons.home_rounded,
-                label: 'Home',
-              ),
-              _buildNavItem(
-                index: 1,
-                icon: Icons.access_time_outlined,
-                activeIcon: Icons.access_time_filled,
-                label: 'History',
-              ),
-              _buildNavItem(
-                index: 2,
-                icon: Icons.settings_outlined,
-                activeIcon: Icons.settings,
-                label: 'Settings',
-              ),
-            ],
+    return Center(
+      child: LiquidGlassTabBar(
+        items: const [
+          LiquidGlassTabBarItem(
+            icon: Icons.home_outlined,
+            selectedIcon: Icons.home_rounded,
+            label: 'Home',
           ),
+          LiquidGlassTabBarItem(
+            icon: Icons.access_time_outlined,
+            selectedIcon: Icons.access_time_filled,
+            label: 'History',
+          ),
+          LiquidGlassTabBarItem(
+            icon: Icons.settings_outlined,
+            selectedIcon: Icons.settings,
+            label: 'Settings',
+          ),
+        ],
+        selectedIndex: _currentTab,
+        onChanged: (index) {
+          setState(() => _currentTab = index);
+          if (index == 1) {
+            final homeVM = context.read<HomeViewModel>();
+            final devId = homeVM.selectedDevice?.deviceId ??
+                (homeVM.devices.isNotEmpty ? homeVM.devices.first.deviceId : null);
+            if (devId != null) {
+              homeVM.fetchDeviceLogs(devId);
+            }
+          }
+        },
+        pillStyle: LiquidGlassTabPillStyle(
+          mode: LiquidGlassPillMode.both,
+          color: ParcelGlassColors.accentBlue.withValues(alpha: 0.16),
+          animated: true,
         ),
+        itemStyle: const LiquidGlassTabItemStyle(
+          selectedColor: ParcelGlassColors.accentBlue,
+          unselectedColor: ParcelGlassColors.slateSubtitle,
+          iconSize: 22,
+          labelFontSize: 11,
+          selectedFontWeight: FontWeight.w800,
+          unselectedFontWeight: FontWeight.w600,
+        ),
+        width: 320,
+        height: 64,
+        margin: const EdgeInsets.only(bottom: 16),
       ),
     );
   }
 
-  Widget _buildNavItem({
-    required int index,
-    required IconData icon,
-    required IconData activeIcon,
-    required String label,
-  }) {
-    final isSelected = _currentTab == index;
-    final color = isSelected ? ParcelGlassColors.accentBlue : ParcelGlassColors.slateSubtitle;
-
-    return GestureDetector(
-      onTap: () => setState(() => _currentTab = index),
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 72,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isSelected ? activeIcon : icon,
-              color: color,
-              size: 25,
+  Widget _buildUserGreeting(String userName, bool showAddButton) {
+    return Row(
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: ParcelGlassColors.accentBlue.withValues(alpha: 0.15),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: ParcelGlassColors.accentBlue.withValues(alpha: 0.35),
+              width: 1.5,
             ),
-            const SizedBox(height: 3),
+          ),
+          child: Center(
+            child: Text(
+              userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
+              style: const TextStyle(
+                color: ParcelGlassColors.accentBlue,
+                fontWeight: FontWeight.w900,
+                fontSize: 18,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
-              label,
+              userName,
+              style: const TextStyle(
+                color: ParcelGlassColors.navyTitle,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+              ),
+            ),
+            Text(
+              'Secure Box Member',
               style: TextStyle(
-                color: color,
+                color: ParcelGlassColors.slateSubtitle.withValues(alpha: 0.8),
                 fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
               ),
             ),
           ],
         ),
-      ),
+        const Spacer(),
+        if (showAddButton)
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline, color: ParcelGlassColors.accentBlue, size: 26),
+            tooltip: 'Add Locker',
+            onPressed: () => _showAddLocker(context),
+          ),
+      ],
     );
   }
 
@@ -266,215 +314,100 @@ class _HomeScreenState extends State<HomeScreen> {
     final userName = currentUser?.name ?? currentUser?.phone ?? 'User';
     final devices = homeVM.devices;
 
-    return RefreshIndicator(
-      color: ParcelGlassColors.accentBlue,
-      onRefresh: () async => homeVM.fetchDevices(),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top App Bar: User Greeting + Quick Wi-Fi Pill
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: ParcelGlassColors.accentBlue.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: ParcelGlassColors.accentBlue.withValues(alpha: 0.35),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
-                          style: const TextStyle(
-                            color: ParcelGlassColors.accentBlue,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 18,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          userName,
-                          style: const TextStyle(
-                            color: ParcelGlassColors.navyTitle,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                        Text(
-                          'Secure Box Member',
-                          style: TextStyle(
-                            color: ParcelGlassColors.slateSubtitle.withValues(alpha: 0.8),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                GestureDetector(
-                  onTap: () => NetworkHostDialog.show(context).then((_) => setState(() {})),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: ParcelGlassColors.mintSignal.withValues(alpha: 0.4),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 7,
-                          height: 7,
-                          decoration: const BoxDecoration(
-                            color: ParcelGlassColors.mintSignal,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          AppConfig.currentHost,
-                          style: const TextStyle(
-                            color: ParcelGlassColors.navyTitle,
-                            fontSize: 11,
-                            fontFamily: 'monospace',
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            // Prominent "+ ADD LOCKER" Capsule Card
-            LiquidParcelCard(
-              onTap: () => _showAddLocker(context),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              child: Row(
+    if (devices.isEmpty) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.only(left: 18, right: 18, top: 12, bottom: 95),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight - 107),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: ParcelGlassColors.accentBlue,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.add, color: Colors.white, size: 20),
-                  ),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Add / Link a Locker',
-                          style: TextStyle(
-                            color: ParcelGlassColors.navyTitle,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
+                  _buildUserGreeting(userName, false),
+
+                  if (homeVM.loading)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 60),
+                        child: CircularProgressIndicator(color: ParcelGlassColors.accentBlue),
+                      ),
+                    )
+                  else
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 380),
+                        child: LiquidParcelCard(
+                          borderRadius: 24,
+                          padding: const EdgeInsets.all(28),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.inventory_2_outlined, size: 48, color: ParcelGlassColors.accentBlue),
+                              const SizedBox(height: 14),
+                              const Text(
+                                'No Lockers Linked',
+                                style: TextStyle(
+                                  color: ParcelGlassColors.navyTitle,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Add your smart locker using the Hardware Device Code from your box sticker, or enter a Family Join Code.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: ParcelGlassColors.slateSubtitle, fontSize: 13),
+                              ),
+                              const SizedBox(height: 20),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 48,
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: ParcelGlassColors.accentBlue,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                    elevation: 0,
+                                  ),
+                                  onPressed: () => _showAddLocker(context),
+                                  icon: const Icon(Icons.qr_code, size: 18),
+                                  label: const Text(
+                                    'ENTER DEVICE CODE',
+                                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        Text(
-                          'Enter Device Code (e.g. BOX_001) or Join Code',
-                          style: TextStyle(
-                            color: ParcelGlassColors.slateSubtitle,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                  const Icon(Icons.chevron_right, color: ParcelGlassColors.slateSubtitle),
+
+                  const SizedBox(height: 10),
                 ],
               ),
             ),
+          );
+        },
+      );
+    }
 
-            const SizedBox(height: 8),
-
-            if (homeVM.loading && devices.isEmpty) ...[
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 60),
-                  child: CircularProgressIndicator(color: ParcelGlassColors.accentBlue),
-                ),
-              ),
-            ] else if (devices.isEmpty) ...[
-              // Empty State
-              LiquidParcelCard(
-                borderRadius: 24,
-                padding: const EdgeInsets.all(28),
-                child: Column(
-                  children: [
-                    const Icon(Icons.inventory_2_outlined, size: 48, color: ParcelGlassColors.accentBlue),
-                    const SizedBox(height: 14),
-                    const Text(
-                      'No Lockers Linked',
-                      style: TextStyle(
-                        color: ParcelGlassColors.navyTitle,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Add your smart locker using the Hardware Device Code from your box sticker, or enter a Family Join Code.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: ParcelGlassColors.slateSubtitle, fontSize: 13),
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: ParcelGlassColors.accentBlue,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          elevation: 0,
-                        ),
-                        onPressed: () => _showAddLocker(context),
-                        icon: const Icon(Icons.qr_code, size: 18),
-                        label: const Text(
-                          'ENTER DEVICE CODE',
-                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ] else ...[
-              // Active Locker Hero Cards
-              for (final device in devices) ...[
-                _buildLockerHeroCard(device),
-                const SizedBox(height: 12),
-              ],
-            ],
-
-            const SizedBox(height: 80), // spacing above bottom nav
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.only(left: 18, right: 18, top: 12, bottom: 95),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildUserGreeting(userName, true),
+          const SizedBox(height: 16),
+          for (final device in devices) ...[
+            _buildLockerHeroCard(device),
+            const SizedBox(height: 12),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -696,104 +629,233 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildHistoryTab() {
     final home = context.watch<HomeViewModel>();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 12),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          child: Text(
-            'Activity History',
-            style: TextStyle(
-              color: ParcelGlassColors.navyTitle,
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-            ),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Expanded(
-          child: home.loading
-              ? const Center(child: CircularProgressIndicator(color: ParcelGlassColors.accentBlue))
-              : home.logs.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: LiquidParcelCard(
-                          borderRadius: 24,
-                          padding: const EdgeInsets.all(28),
-                          child: const Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.history, size: 44, color: ParcelGlassColors.slateSubtitle),
-                              SizedBox(height: 12),
-                              Text(
-                                'No Activity Recorded Yet',
-                                style: TextStyle(
-                                  color: ParcelGlassColors.navyTitle,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              SizedBox(height: 6),
-                              Text(
-                                'Door interactions and courier delivery events will appear here.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: ParcelGlassColors.slateSubtitle, fontSize: 13),
-                              ),
-                            ],
-                          ),
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.only(left: 20, right: 20, top: 12, bottom: 95),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                child: Text(
+                  'Activity History',
+                  style: TextStyle(
+                    color: ParcelGlassColors.navyTitle,
+                    fontSize: 25,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              if (home.loading)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: CircularProgressIndicator(color: ParcelGlassColors.accentBlue),
+                  ),
+                )
+              else if (home.logs.isEmpty)
+                LiquidParcelCard(
+                  borderRadius: 22,
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.history_toggle_off,
+                        color: ParcelGlassColors.slateSubtitle,
+                        size: 22,
+                      ),
+                      SizedBox(width: 12),
+                      Text(
+                        'No activity recorded yet',
+                        style: TextStyle(
+                          color: ParcelGlassColors.slateSubtitle,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 18),
-                      itemCount: home.logs.length,
-                      itemBuilder: (context, index) {
-                        final log = home.logs[index];
-                        return LiquidParcelCard(
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: ParcelGlassColors.accentBlue.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Icon(Icons.lock_open, color: ParcelGlassColors.accentBlue, size: 20),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      log.action.replaceAll('_', ' ').toUpperCase(),
-                                      style: const TextStyle(
-                                        color: ParcelGlassColors.navyTitle,
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${log.timestamp.hour}:${log.timestamp.minute.toString().padLeft(2, '0')}',
-                                      style: const TextStyle(
-                                        color: ParcelGlassColors.slateSubtitle,
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
+                    ],
+                  ),
+                )
+              else
+                for (final log in home.logs) ...[
+                  _buildHistoryCapsule(log),
+                ],
+            ],
+          ),
         ),
-      ],
+      ),
     );
+  }
+
+  Widget _buildHistoryCapsule(LogModel log) {
+    final actionLower = log.action.toLowerCase();
+    final isUnlock = actionLower.contains('unlock');
+    final isLock = actionLower.contains('lock') && !isUnlock;
+    final isDoorOpen = actionLower == 'door_open';
+    final isDelivery = actionLower.contains('delivery');
+
+    final IconData icon = isUnlock
+        ? Icons.lock_open_rounded
+        : (isLock
+            ? Icons.lock_rounded
+            : (isDelivery
+                ? Icons.inventory_2_outlined
+                : (isDoorOpen ? Icons.sensor_door_outlined : Icons.history_rounded)));
+
+    final Color iconColor = isUnlock
+        ? ParcelGlassColors.mintSignal
+        : (isLock
+            ? ParcelGlassColors.accentBlue
+            : (isDelivery
+                ? const Color(0xFF6366F1)
+                : (isDoorOpen ? ParcelGlassColors.amberSignal : ParcelGlassColors.slateSubtitle)));
+
+    String title;
+    if (isUnlock) {
+      title = 'Locker Unlocked';
+    } else if (isLock) {
+      title = 'Locker Locked & Secured';
+    } else if (isDoorOpen) {
+      title = 'Door Sensor Opened';
+    } else if (isDelivery) {
+      title = 'Package Delivered & Locked';
+    } else {
+      title = log.action.replaceAll('_', ' ').toUpperCase();
+    }
+
+    // Extract Actor Information (Owner / Co-Owner / Sensor)
+    final metadata = log.metadata ?? {};
+    final String? actorName = metadata['userName']?.toString();
+    final String? actorRole = metadata['userRole']?.toString();
+
+    final timeClock =
+        '${log.timestamp.hour.toString().padLeft(2, '0')}:${log.timestamp.minute.toString().padLeft(2, '0')}';
+    final timeStr = _formatLogTimestamp(log.timestamp);
+
+    return LiquidParcelCard(
+      borderRadius: 22,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              color: iconColor,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: ParcelGlassColors.navyTitle,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                // Actor Info: Owner / Co-owner
+                if (actorName != null && actorName.isNotEmpty) ...[
+                  Row(
+                    children: [
+                      Text(
+                        'by $actorName',
+                        style: const TextStyle(
+                          color: ParcelGlassColors.slateSubtitle,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (actorRole != null && actorRole.isNotEmpty) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: actorRole.toLowerCase().contains('owner') && !actorRole.toLowerCase().contains('co')
+                                ? ParcelGlassColors.mintSignal.withValues(alpha: 0.18)
+                                : ParcelGlassColors.accentBlue.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            actorRole.toUpperCase(),
+                            style: TextStyle(
+                              color: actorRole.toLowerCase().contains('owner') && !actorRole.toLowerCase().contains('co')
+                                  ? const Color(0xFF047857)
+                                  : ParcelGlassColors.accentBlue,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                ],
+                // Date & clock
+                Text(
+                  '$timeStr at $timeClock',
+                  style: TextStyle(
+                    color: ParcelGlassColors.slateSubtitle.withValues(alpha: 0.75),
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.7)),
+            ),
+            child: Text(
+              timeClock,
+              style: const TextStyle(
+                color: ParcelGlassColors.navyTitle,
+                fontSize: 11,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatLogTimestamp(DateTime dt) {
+    final now = DateTime.now();
+    final isToday = dt.year == now.year && dt.month == now.month && dt.day == now.day;
+    if (isToday) return 'Today';
+    final yesterday = now.subtract(const Duration(days: 1));
+    final isYesterday = dt.year == yesterday.year && dt.month == yesterday.month && dt.day == yesterday.day;
+    if (isYesterday) return 'Yesterday';
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
   }
 }

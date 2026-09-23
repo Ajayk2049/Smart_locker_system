@@ -3,6 +3,7 @@ import { PrepareModal } from "../modals/PrepareModal";
 import { DispatchModal } from "../modals/DispatchModal";
 import { DeliveredModal } from "../modals/DeliveredModal";
 import { RejectModal } from "../modals/RejectModal";
+import { SimulatorModal } from "../modals/SimulatorModal";
 
 export interface DashboardModalsProps {
   prepareModalData: {
@@ -47,6 +48,12 @@ export interface DashboardModalsProps {
   onRejectionReasonChange: (val: string) => void;
   onCloseReject: () => void;
   onConfirmReject: () => void;
+
+  simulatorModalData: {
+    deviceId: string;
+    customerName: string;
+  } | null;
+  onCloseSimulator: () => void;
 }
 
 export function DashboardModals({
@@ -75,6 +82,9 @@ export function DashboardModals({
   onRejectionReasonChange,
   onCloseReject,
   onConfirmReject,
+
+  simulatorModalData,
+  onCloseSimulator,
 }: DashboardModalsProps) {
   return (
     <>
@@ -117,6 +127,13 @@ export function DashboardModals({
           onReasonChange={onRejectionReasonChange}
           onClose={onCloseReject}
           onConfirm={onConfirmReject}
+        />
+      )}
+
+      {simulatorModalData && (
+        <SimulatorModal
+          data={simulatorModalData}
+          onClose={onCloseSimulator}
         />
       )}
     </>

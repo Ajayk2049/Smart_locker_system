@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/user.model.dart';
 import '../services/api_service.dart';
@@ -9,18 +10,65 @@ class AuthViewModel extends ChangeNotifier {
 
   UserModel? _user;
   bool _loading = false;
+  bool _initialized = false;
   String? _error;
+  String? _savedIdentifier;
+  String? _savedPassword;
 
   UserModel? get user => _user;
   bool get loading => _loading;
+  bool get initialized => _initialized;
   String? get error => _error;
+  String? get savedIdentifier => _savedIdentifier;
+  String? get savedPassword => _savedPassword;
   bool get isAuthenticated => _user != null;
 
   Future<void> init() async {
-    final hasToken = await _storage.hasToken();
-    if (hasToken) {
-      // Validate token and fetch user profile
-    }
+    _loading = true;
+    notifyListeners();
+
+    try {
+      _savedIdentifier = await _storage.getSavedIdentifier();
+      _savedPassword = await _storage.getSavedPassword();
+
+      final hasToken = await _storage.hasToken();
+      if (hasToken) {
+        try {
+          final res = await _api.getMe();
+          if (res['user'] != null) {
+            _user = UserModel.fromJson(res['user']);
+            await _storage.saveUserData(jsonEncode(res['user']));
+          }
+        } catch (_) {
+          // If network error, attempt to load cached offline user profile
+          final cached = await _storage.getUserData();
+          if (cached != null) {
+            try {
+              _user = UserModel.fromJson(jsonDecode(cached));
+            } catch (_) {}
+          }
+        }
+      }
+
+      // If still not authenticated but we have saved login credentials, attempt background login
+      if (_user == null &&
+          _savedIdentifier != null &&
+          _savedIdentifier!.isNotEmpty &&
+          _savedPassword != null &&
+          _savedPassword!.isNotEmpty) {
+        try {
+          final res = await _api.login(_savedIdentifier!, _savedPassword!);
+          if (res['token'] != null) {
+            await _storage.saveToken(res['token']);
+            _user = UserModel.fromJson(res['user']);
+            await _storage.saveUserData(jsonEncode(res['user']));
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    _loading = false;
+    _initialized = true;
     notifyListeners();
   }
 
@@ -64,7 +112,13 @@ class AuthViewModel extends ChangeNotifier {
         inviteCode: inviteCode,
       );
       await _storage.saveToken(response['token']);
-      _user = UserModel.fromJson(response['user']);
+      await _storage.saveCredentials(identifier: phone, password: password);
+      _savedIdentifier = phone;
+      _savedPassword = password;
+      if (response['user'] != null) {
+        await _storage.saveUserData(jsonEncode(response['user']));
+        _user = UserModel.fromJson(response['user']);
+      }
       _loading = false;
       notifyListeners();
       return true;
@@ -85,7 +139,13 @@ class AuthViewModel extends ChangeNotifier {
     try {
       final response = await _api.login(identifier, password);
       await _storage.saveToken(response['token']);
-      _user = UserModel.fromJson(response['user']);
+      await _storage.saveCredentials(identifier: identifier, password: password);
+      _savedIdentifier = identifier;
+      _savedPassword = password;
+      if (response['user'] != null) {
+        await _storage.saveUserData(jsonEncode(response['user']));
+        _user = UserModel.fromJson(response['user']);
+      }
       _loading = false;
       notifyListeners();
       return true;

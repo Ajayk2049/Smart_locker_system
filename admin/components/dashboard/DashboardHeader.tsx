@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Search, RefreshCw, Sun, Moon, LogOut } from "lucide-react";
+import { Box, Search, RefreshCw, Sun, Moon, LogOut, Cpu } from "lucide-react";
 
 export type MainDashboardTab = "live" | "pending" | "all";
 export type PendingSubFilter = "all" | "pending" | "preparing" | "dispatched";
@@ -64,6 +64,17 @@ export function DashboardHeader({
           </div>
 
           <div className="flex items-center gap-2">
+            <a
+              href="http://localhost:4300/simulator"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Launch Hardware Simulator Console"
+              className="h-10 px-3 rounded-none font-mono text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:text-black hover:bg-[#00F5A0] border border-slate-200 dark:border-slate-800 transition-colors cursor-pointer flex items-center gap-1.5 bg-white dark:bg-[#080D14]"
+            >
+              <Cpu className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span className="hidden sm:inline">HW Simulator</span>
+            </a>
+
             <button
               onClick={onRefresh}
               disabled={isLoading}

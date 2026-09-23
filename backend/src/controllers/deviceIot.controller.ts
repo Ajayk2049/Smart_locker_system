@@ -116,23 +116,28 @@ export async function receiveTelemetry(request: FastifyRequest, reply: FastifyRe
   device.lastHeartbeat = new Date();
   await device.save();
 
-  wsService.broadcastToDevice(targetId, {
+  const statusMsg = {
     type: "DEVICE_STATUS",
     deviceId: targetId,
     doorState,
     online: true,
-  });
-  wsService.broadcastToDevice(device._id.toString(), {
-    type: "DEVICE_STATUS",
-    deviceId: targetId,
-    doorState,
-    online: true,
-  });
+  };
+  wsService.broadcastToDevice(targetId, statusMsg);
+  wsService.broadcastToDevice(device._id.toString(), statusMsg);
+  if (device.ownerId) wsService.broadcastToDevice(device.ownerId.toString(), statusMsg);
+  wsService.broadcastToAll(statusMsg);
 
   if (doorState === "closed") {
     await Log.create({
       deviceId: device._id,
-      action: "delivery_success",
+      action: "lock",
+      metadata: {
+        event: "door_locked",
+        source: "physical_sensor",
+        userName: "Mechanical Latch",
+        userRole: "Auto / Sensor",
+        deviceId: device.deviceId,
+      },
     });
 
     const owner = await User.findById(device.ownerId);
@@ -140,22 +145,35 @@ export async function receiveTelemetry(request: FastifyRequest, reply: FastifyRe
       await emailService.sendDeliveryNotification(owner.email, device.name);
     }
 
-    wsService.broadcastToDevice(targetId, {
+    const deliveryMsg = {
       type: "DELIVERY_SUCCESS",
       deviceId: targetId,
       doorState: "closed",
-    });
+      online: true,
+    };
+    wsService.broadcastToDevice(targetId, deliveryMsg);
+    wsService.broadcastToAll(deliveryMsg);
   } else {
     await Log.create({
       deviceId: device._id,
       action: "door_open",
+      metadata: {
+        event: "door_opened",
+        source: "physical_sensor",
+        userName: "Door Sensor",
+        userRole: "Auto / Sensor",
+        deviceId: device.deviceId,
+      },
     });
 
-    wsService.broadcastToDevice(targetId, {
+    const openMsg = {
       type: "DOOR_OPEN",
       deviceId: targetId,
       doorState: "open",
-    });
+      online: true,
+    };
+    wsService.broadcastToDevice(targetId, openMsg);
+    wsService.broadcastToAll(openMsg);
   }
 
   return reply.send({ success: true, doorState, online: true });
@@ -176,23 +194,20 @@ export async function receiveHeartbeat(request: FastifyRequest, reply: FastifyRe
     return reply.status(404).send({ error: `Device '${targetId}' not registered` });
   }
 
-  const wasOffline = !device.online;
   device.online = true;
   device.lastHeartbeat = new Date();
   await device.save();
 
-  if (wasOffline) {
-    wsService.broadcastToDevice(targetId, {
-      type: "DEVICE_STATUS",
-      deviceId: targetId,
-      doorState: device.doorState,
-      online: true,
-    });
-    wsService.broadcastToDevice(targetId, {
-      type: "DEVICE_ONLINE",
-      deviceId: targetId,
-    });
-  }
+  const heartbeatMsg = {
+    type: "DEVICE_STATUS",
+    deviceId: targetId,
+    doorState: device.doorState,
+    online: true,
+  };
+  wsService.broadcastToDevice(targetId, heartbeatMsg);
+  wsService.broadcastToDevice(device._id.toString(), heartbeatMsg);
+  if (device.ownerId) wsService.broadcastToDevice(device.ownerId.toString(), heartbeatMsg);
+  wsService.broadcastToAll(heartbeatMsg);
 
   return reply.send({ success: true, online: true, timestamp: device.lastHeartbeat });
 }
@@ -210,17 +225,16 @@ export async function checkDeviceWatchdog() {
       dev.online = false;
       await dev.save();
 
-      wsService.broadcastToDevice(dev.deviceId, {
+      const offlineMsg = {
         type: "DEVICE_STATUS",
         deviceId: dev.deviceId,
         online: false,
         doorState: dev.doorState,
-      });
-
-      wsService.broadcastToDevice(dev.deviceId, {
-        type: "DEVICE_OFFLINE",
-        deviceId: dev.deviceId,
-      });
+      };
+      wsService.broadcastToDevice(dev.deviceId, offlineMsg);
+      wsService.broadcastToDevice(dev._id.toString(), offlineMsg);
+      if (dev.ownerId) wsService.broadcastToDevice(dev.ownerId.toString(), offlineMsg);
+      wsService.broadcastToAll(offlineMsg);
     }
   } catch (err) {
     console.error("Error in device watchdog:", err);

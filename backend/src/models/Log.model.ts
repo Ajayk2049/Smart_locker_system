@@ -4,6 +4,7 @@ export interface ILog extends Document {
   deviceId?: mongoose.Types.ObjectId;
   action:
     | "unlock"
+    | "lock"
     | "door_open"
     | "door_close"
     | "delivery_success"

@@ -15,8 +15,8 @@ class SettingsScreen extends StatelessWidget {
     final auth = context.read<AuthViewModel>();
 
     return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.only(left: 24, right: 24, top: 12, bottom: 85),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 350),
