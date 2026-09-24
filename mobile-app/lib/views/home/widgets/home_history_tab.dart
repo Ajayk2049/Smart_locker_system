@@ -13,7 +13,7 @@ class HomeHistoryTab extends StatelessWidget {
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.only(left: 20, right: 20, top: 12, bottom: 95),
+      padding: const EdgeInsets.only(left: 20, right: 20, top: 12, bottom: 110),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 700),

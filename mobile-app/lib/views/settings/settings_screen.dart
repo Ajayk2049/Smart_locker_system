@@ -35,7 +35,7 @@ class SettingsScreen extends StatelessWidget {
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.only(left: 24, right: 24, top: 12, bottom: 85),
+      padding: const EdgeInsets.only(left: 24, right: 24, top: 12, bottom: 110),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 700),

@@ -100,28 +100,25 @@ class _HomeScreenState extends State<HomeScreen> {
           Positioned(
             left: 0,
             right: 0,
-            bottom: 0,
-            child: SafeArea(
-              top: false,
-              child: RepaintBoundary(
-                child: HomeBottomNav(
-                  selectedIndex: _currentTab,
-                  onChanged: (index) {
-                    if (_currentTab == index) return;
-                    setState(() => _currentTab = index);
-                    if (index == 1) {
-                      final homeVM = context.read<HomeViewModel>();
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (!mounted) return;
-                        final devId = homeVM.selectedDevice?.deviceId ??
-                            (homeVM.devices.isNotEmpty ? homeVM.devices.first.deviceId : null);
-                        if (devId != null) {
-                          homeVM.fetchDeviceLogs(devId);
-                        }
-                      });
-                    }
-                  },
-                ),
+            bottom: MediaQuery.of(context).padding.bottom + 20,
+            child: RepaintBoundary(
+              child: HomeBottomNav(
+                selectedIndex: _currentTab,
+                onChanged: (index) {
+                  if (_currentTab == index) return;
+                  setState(() => _currentTab = index);
+                  if (index == 1) {
+                    final homeVM = context.read<HomeViewModel>();
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
+                      final devId = homeVM.selectedDevice?.deviceId ??
+                          (homeVM.devices.isNotEmpty ? homeVM.devices.first.deviceId : null);
+                      if (devId != null) {
+                        homeVM.fetchDeviceLogs(devId);
+                      }
+                    });
+                  }
+                },
               ),
             ),
           ),
@@ -170,7 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.only(left: 18, right: 18, top: 12, bottom: 95),
+      padding: const EdgeInsets.only(left: 18, right: 18, top: 12, bottom: 110),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 700),

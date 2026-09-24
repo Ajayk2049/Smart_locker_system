@@ -38,7 +38,7 @@ class HomeBottomNav extends StatelessWidget {
         pillStyle: LiquidGlassTabPillStyle(
           mode: LiquidGlassPillMode.both,
           color: ParcelGlassColors.accentBlue.withValues(alpha: 0.16),
-          animated: false,
+          animated: true,
         ),
         itemStyle: const LiquidGlassTabItemStyle(
           selectedColor: ParcelGlassColors.accentBlue,
@@ -50,7 +50,7 @@ class HomeBottomNav extends StatelessWidget {
         ),
         width: 320,
         height: 64,
-        margin: const EdgeInsets.only(bottom: 16),
+        margin: const EdgeInsets.only(bottom: 28),
       ),
     );
   }
