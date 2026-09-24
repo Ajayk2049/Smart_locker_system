@@ -124,68 +124,78 @@ class _LiquidSlideToUnlockState extends State<LiquidSlideToUnlock> {
                     ),
                   ),
 
-                // Center Label
-                Center(
-                  child: widget.isUnlocking
-                      ? const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.2,
-                                color: ParcelGlassColors.mintSignal,
-                              ),
-                            ),
-                            SizedBox(width: 10),
-                            Text(
-                              'OPENING SOLENOID LOCK...',
-                              style: TextStyle(
-                                color: ParcelGlassColors.mintSignal,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 12,
-                                letterSpacing: 1.2,
-                              ),
-                            ),
-                          ],
-                        )
-                      : widget.isUnlocked
-                          ? const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.lock_open_rounded,
-                                  color: ParcelGlassColors.amberSignal,
-                                  size: 18,
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  'DOOR UNLOCKED • PUSH TO LOCK',
-                                  style: TextStyle(
-                                    color: ParcelGlassColors.amberSignal,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 12,
-                                    letterSpacing: 0.8,
+                // Label positioned cleanly to not overlap the resting thumb
+                Positioned.fill(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: thumbSize + 12),
+                    child: Center(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: widget.isUnlocking
+                            ? const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.2,
+                                      color: ParcelGlassColors.mintSignal,
+                                    ),
                                   ),
-                                ),
-                              ],
-                            )
-                          : Text(
-                              widget.isLockerOnline
-                                  ? 'SLIDE TO UNLOCK DOOR ➔'
-                                  : 'LOCKER IS OFFLINE',
-                              style: TextStyle(
-                                color: widget.isLockerOnline
-                                    ? (isDark
-                                        ? Colors.white.withValues(alpha: (0.7 - (_dragProgress * 0.5)).clamp(0.0, 1.0))
-                                        : primaryTextColor.withValues(alpha: (0.7 - (_dragProgress * 0.5)).clamp(0.0, 1.0)))
-                                    : (isDark ? Colors.white38 : Colors.black38),
-                                fontWeight: FontWeight.w900,
-                                fontSize: 12,
-                                letterSpacing: 1.5,
-                              ),
-                            ),
+                                  SizedBox(width: 10),
+                                  Text(
+                                    'OPENING SOLENOID LOCK...',
+                                    style: TextStyle(
+                                      color: ParcelGlassColors.mintSignal,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 12,
+                                      letterSpacing: 1.2,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : widget.isUnlocked
+                                ? const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.lock_open_rounded,
+                                        color: ParcelGlassColors.amberSignal,
+                                        size: 18,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'DOOR UNLOCKED • PUSH TO LOCK',
+                                        style: TextStyle(
+                                          color: ParcelGlassColors.amberSignal,
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 12,
+                                          letterSpacing: 0.8,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Text(
+                                    widget.isLockerOnline
+                                        ? 'SLIDE TO UNLOCK DOOR ➔'
+                                        : 'LOCKER IS OFFLINE',
+                                    style: TextStyle(
+                                      color: widget.isLockerOnline
+                                          ? (isDark
+                                              ? Colors.white.withValues(alpha: (0.7 - (_dragProgress * 0.5)).clamp(0.0, 1.0))
+                                              : primaryTextColor.withValues(alpha: (0.7 - (_dragProgress * 0.5)).clamp(0.0, 1.0)))
+                                          : (isDark ? Colors.white38 : Colors.black38),
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 12,
+                                      letterSpacing: 1.2,
+                                    ),
+                                  ),
+                      ),
+                    ),
+                  ),
                 ),
 
                 // Centered Circular Thumb Handle

@@ -25,10 +25,12 @@ export async function getDevices(request: FastifyRequest, reply: FastifyReply) {
     .populate("ownerId", "email name")
     .populate("coOwners", "email name");
 
+  const userId = (user?.id || (user as any)?._id)?.toString().trim().toLowerCase();
+
   const mapped = devices.map((d: any) => {
     const obj = d.toObject ? d.toObject() : { ...d };
-    const ownerIdStr = d.ownerId?._id ? d.ownerId._id.toString() : d.ownerId?.toString();
-    const isOwner = ownerIdStr === user.id;
+    const ownerIdStr = (d.ownerId?._id || d.ownerId)?.toString().trim().toLowerCase();
+    const isOwner = Boolean(userId && ownerIdStr && ownerIdStr === userId);
     return {
       ...obj,
       isOwner,

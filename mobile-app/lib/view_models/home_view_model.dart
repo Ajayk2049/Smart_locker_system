@@ -63,10 +63,7 @@ class HomeViewModel extends ChangeNotifier {
         for (int i = 0; i < _devices.length; i++) {
           if (_devices[i].id.trim().toUpperCase() == targetUpper ||
               _devices[i].deviceId.trim().toUpperCase() == targetUpper) {
-            _devices[i] = DeviceModel(
-              id: _devices[i].id,
-              deviceId: _devices[i].deviceId,
-              name: _devices[i].name,
+            _devices[i] = _devices[i].copyWith(
               doorState: newDoorState ?? _devices[i].doorState,
               online: isOnline ?? _devices[i].online,
             );
@@ -98,7 +95,9 @@ class HomeViewModel extends ChangeNotifier {
         for (int i = 0; i < newDevices.length; i++) {
           if (newDevices[i].online != _devices[i].online ||
               newDevices[i].doorState != _devices[i].doorState ||
-              newDevices[i].name != _devices[i].name) {
+              newDevices[i].name != _devices[i].name ||
+              newDevices[i].isOwner != _devices[i].isOwner ||
+              newDevices[i].userRole != _devices[i].userRole) {
             hasChange = true;
             break;
           }
@@ -153,10 +152,7 @@ class HomeViewModel extends ChangeNotifier {
     // Optimistically show door opening in UI
     for (int i = 0; i < _devices.length; i++) {
       if (_devices[i].id == deviceId || _devices[i].deviceId == deviceId) {
-        _devices[i] = DeviceModel(
-          id: _devices[i].id,
-          deviceId: _devices[i].deviceId,
-          name: _devices[i].name,
+        _devices[i] = _devices[i].copyWith(
           doorState: 'open',
           online: true,
         );

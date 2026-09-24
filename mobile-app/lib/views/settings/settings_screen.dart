@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config.dart';
 import '../../view_models/auth_view_model.dart';
+import '../../view_models/home_view_model.dart';
 import '../widgets/glass_theme.dart';
 import '../widgets/network_host_dialog.dart';
 
@@ -12,14 +13,32 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.read<AuthViewModel>();
+    final auth = context.watch<AuthViewModel>();
+    final home = context.watch<HomeViewModel>();
+
+    final user = auth.user;
+    final userName = user?.name ?? user?.phone ?? 'Member';
+    final userPhone = user?.phone ?? '';
+
+    // Calculate contextual ownership counts across linked devices
+    final devices = home.devices;
+    final ownedCount = devices.where((d) => d.isOwner).length;
+    final coOwnedCount = devices.where((d) => !d.isOwner).length;
+
+    String accountScopeText = 'Standard Account';
+    if (devices.isNotEmpty) {
+      final List<String> parts = [];
+      if (ownedCount > 0) parts.add('$ownedCount Owned');
+      if (coOwnedCount > 0) parts.add('$coOwnedCount Co-Owned');
+      accountScopeText = parts.join(' • ');
+    }
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.only(left: 24, right: 24, top: 12, bottom: 85),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 350),
+          constraints: const BoxConstraints(maxWidth: 700),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -51,6 +70,85 @@ class SettingsScreen extends StatelessWidget {
               ),
 
               const SizedBox(height: 10),
+
+              // User Profile & Account Summary Capsule (Zero Emojis)
+              LiquidParcelCard(
+                borderRadius: 22,
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: ParcelGlassColors.accentBlue.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: ParcelGlassColors.accentBlue.withValues(alpha: 0.35),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
+                          style: const TextStyle(
+                            color: ParcelGlassColors.accentBlue,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            userName,
+                            style: const TextStyle(
+                              color: ParcelGlassColors.navyTitle,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          if (userPhone.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              userPhone,
+                              style: const TextStyle(
+                                color: ParcelGlassColors.slateSubtitle,
+                                fontSize: 12,
+                                fontFamily: 'monospace',
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: ParcelGlassColors.accentBlue.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              accountScopeText.toUpperCase(),
+                              style: const TextStyle(
+                                color: ParcelGlassColors.accentBlue,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
               // 1. Device & Network
               _buildSettingCapsule(

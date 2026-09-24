@@ -85,7 +85,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 )
               : Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 380),
+                    constraints: const BoxConstraints(maxWidth: 700),
                     child: ListView.builder(
                       physics: const BouncingScrollPhysics(),
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

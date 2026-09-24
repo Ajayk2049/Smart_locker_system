@@ -274,6 +274,8 @@ export async function joinDevice(request: FastifyRequest, reply: FastifyReply) {
       name: device.name,
       doorState: device.doorState,
       online: device.online,
+      isOwner: false,
+      userRole: "Co-Owner",
     },
   });
 }
