@@ -13,6 +13,14 @@ function isAuthorizedUser(device: any, userId: string): boolean {
   return Boolean(isOwner || isCoOwner);
 }
 
+async function findDeviceByIdOrDeviceId(id: string) {
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    const dev = await Device.findById(id);
+    if (dev) return dev;
+  }
+  return await Device.findOne({ deviceId: id.trim().toUpperCase() });
+}
+
 // 1. Add Co-Owner manually by email
 export async function addCoOwner(request: FastifyRequest, reply: FastifyReply) {
   const { id } = request.params as { id: string };
@@ -23,7 +31,7 @@ export async function addCoOwner(request: FastifyRequest, reply: FastifyReply) {
     return reply.status(400).send({ error: "email is required" });
   }
 
-  const device = await Device.findById(id);
+  const device = await findDeviceByIdOrDeviceId(id);
   if (!device) {
     return reply.status(404).send({ error: "Device not found" });
   }
@@ -64,7 +72,13 @@ export async function addCoOwner(request: FastifyRequest, reply: FastifyReply) {
   await Log.create({
     deviceId: device._id,
     action: "co_owner_added",
-    metadata: { addedBy: user.id, coOwnerId: targetUser._id, coOwnerEmail: targetUser.email },
+    metadata: {
+      addedBy: user.id,
+      coOwnerId: targetUser._id,
+      coOwnerEmail: targetUser.email,
+      userName: targetUser.name || targetUser.email,
+      userRole: "Co-Owner",
+    },
   });
 
   return reply.send({
@@ -80,7 +94,7 @@ export async function removeCoOwner(request: FastifyRequest, reply: FastifyReply
   const { id, userId } = request.params as { id: string; userId: string };
   const user = request.user as { id: string };
 
-  const device = await Device.findById(id);
+  const device = await findDeviceByIdOrDeviceId(id);
   if (!device) {
     return reply.status(404).send({ error: "Device not found" });
   }
@@ -92,10 +106,16 @@ export async function removeCoOwner(request: FastifyRequest, reply: FastifyReply
   device.coOwners = device.coOwners.filter((cId) => cId.toString() !== userId);
   await device.save();
 
+  const removedUser = await User.findById(userId);
   await Log.create({
     deviceId: device._id,
     action: "co_owner_removed",
-    metadata: { removedBy: user.id, removedUserId: userId },
+    metadata: {
+      removedBy: user.id,
+      removedUserId: userId,
+      userName: removedUser?.name || removedUser?.email || "Co-Owner",
+      userRole: "Co-Owner",
+    },
   });
 
   return reply.send({
@@ -110,7 +130,7 @@ export async function createInviteCode(request: FastifyRequest, reply: FastifyRe
   const { id } = request.params as { id: string };
   const user = request.user as { id: string };
 
-  const device = await Device.findById(id);
+  const device = await findDeviceByIdOrDeviceId(id);
   if (!device) {
     return reply.status(404).send({ error: "Device not found" });
   }
@@ -125,6 +145,17 @@ export async function createInviteCode(request: FastifyRequest, reply: FastifyRe
   if (currentOccupied >= maxAllowed) {
     return reply.status(403).send({
       error: `All ${maxAllowed} slots are occupied. Upgrade slots via admin to invite more users.`,
+    });
+  }
+
+  // If device already has an active, valid invite code (valid for > 60s), reuse it!
+  if (device.inviteCode && device.inviteExpiresAt && device.inviteExpiresAt > new Date(Date.now() + 60 * 1000)) {
+    return reply.send({
+      success: true,
+      inviteCode: device.inviteCode,
+      expiresAt: device.inviteExpiresAt,
+      expiresInSeconds: Math.floor((device.inviteExpiresAt.getTime() - Date.now()) / 1000),
+      message: `Share code ${device.inviteCode} with your co-owner. Valid for 24 hours.`,
     });
   }
 
@@ -150,7 +181,7 @@ export async function cancelInviteCode(request: FastifyRequest, reply: FastifyRe
   const { id } = request.params as { id: string };
   const user = request.user as { id: string };
 
-  const device = await Device.findById(id);
+  const device = await findDeviceByIdOrDeviceId(id);
   if (!device) {
     return reply.status(404).send({ error: "Device not found" });
   }
@@ -176,9 +207,17 @@ export async function joinDevice(request: FastifyRequest, reply: FastifyReply) {
   }
 
   const cleanCode = inviteCode.trim().toUpperCase();
+  const rawAlphanumeric = cleanCode.replace(/[^A-Z0-9]/g, "");
+  const normalizedWithPrefix = rawAlphanumeric.startsWith("SBX")
+    ? `SBX-${rawAlphanumeric.substring(3)}`
+    : `SBX-${rawAlphanumeric}`;
 
   const device = await Device.findOne({
-    inviteCode: cleanCode,
+    $or: [
+      { inviteCode: cleanCode },
+      { inviteCode: normalizedWithPrefix },
+      { inviteCode: rawAlphanumeric },
+    ],
     inviteExpiresAt: { $gt: new Date() },
   });
 
@@ -201,15 +240,29 @@ export async function joinDevice(request: FastifyRequest, reply: FastifyReply) {
     return reply.status(403).send({ error: "This device has already reached its user slot capacity" });
   }
 
-  device.coOwners.push(user.id as any);
+  const userObjectId = new mongoose.Types.ObjectId(user.id);
+  device.coOwners.push(userObjectId);
   device.inviteCode = undefined;
   device.inviteExpiresAt = undefined;
   await device.save();
 
+  // Also record on user model
+  await User.findByIdAndUpdate(user.id, {
+    $addToSet: { assignedDevices: device.deviceId },
+  });
+
+  const dbUser = await User.findById(user.id);
+  const joinerName = dbUser?.name || dbUser?.email || "Co-Owner";
+
   await Log.create({
     deviceId: device._id,
     action: "co_owner_added",
-    metadata: { coOwnerId: user.id, method: "join_code" },
+    metadata: {
+      coOwnerId: user.id,
+      userName: joinerName,
+      userRole: "Co-Owner",
+      method: "join_code",
+    },
   });
 
   return reply.send({
@@ -230,7 +283,11 @@ export async function getDeviceSlots(request: FastifyRequest, reply: FastifyRepl
   const { id } = request.params as { id: string };
   const user = request.user as { id: string };
 
-  const device = await Device.findById(id)
+  const query = mongoose.Types.ObjectId.isValid(id)
+    ? Device.findById(id)
+    : Device.findOne({ deviceId: id.trim().toUpperCase() });
+
+  const device = await query
     .populate("ownerId", "email")
     .populate("coOwners", "email");
 

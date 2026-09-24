@@ -78,9 +78,9 @@ class _AddLockerDialogState extends State<AddLockerDialog> {
   }
 
   Future<void> _submitJoinCode() async {
-    final joinCode = _joinCodeController.text.trim().toUpperCase();
+    final joinCode = _joinCodeController.text.trim().toUpperCase().replaceAll(' ', '');
     if (joinCode.isEmpty) {
-      setState(() => _errorMessage = 'Please enter 6-character Join Code');
+      setState(() => _errorMessage = 'Please enter Join Code');
       return;
     }
 

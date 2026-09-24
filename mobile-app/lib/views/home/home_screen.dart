@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/device.model.dart';
-import '../../models/log.model.dart';
 import '../../services/api_service.dart';
 import '../../view_models/auth_view_model.dart';
 import '../../view_models/home_view_model.dart';
@@ -11,6 +10,7 @@ import '../settings/settings_screen.dart';
 import '../widgets/add_locker_dialog.dart';
 import '../widgets/glass_theme.dart';
 import '../widgets/liquid_slide_to_unlock.dart';
+import '../widgets/parcel_history_tile.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -108,7 +108,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         onPressed: () {
                           Clipboard.setData(ClipboardData(text: inviteCode));
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Join code copied to clipboard!')),
+                            SnackBar(
+                              content: const Text('Join code copied to clipboard!'),
+                              behavior: SnackBarBehavior.floating,
+                              margin: const EdgeInsets.only(bottom: 100, left: 20, right: 20),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
                           );
                         },
                       ),
@@ -127,6 +132,9 @@ class _HomeScreenState extends State<HomeScreen> {
           SnackBar(
             content: Text('Could not generate invite: ${e.toString()}'),
             backgroundColor: ParcelGlassColors.alertRed,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.only(bottom: 100, left: 20, right: 20),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
         );
       }
@@ -144,11 +152,15 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 const Icon(Icons.lock_open, color: Colors.white, size: 20),
                 const SizedBox(width: 10),
-                Text('Solenoid unlock sent to ${device.deviceId}! Door opened.'),
+                Expanded(
+                  child: Text('${device.deviceId} - Door opened.'),
+                ),
               ],
             ),
             backgroundColor: ParcelGlassColors.accentBlue,
             behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.only(bottom: 100, left: 20, right: 20),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
         );
       }
@@ -159,6 +171,8 @@ class _HomeScreenState extends State<HomeScreen> {
             content: Text('Unlock failed: ${e.toString().replaceAll('Exception: ', '')}'),
             backgroundColor: ParcelGlassColors.alertRed,
             behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.only(bottom: 100, left: 20, right: 20),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
         );
       }
@@ -176,9 +190,11 @@ class _HomeScreenState extends State<HomeScreen> {
             child: IndexedStack(
               index: _currentTab,
               children: [
-                _buildHomeTab(),
-                _buildHistoryTab(),
-                SettingsScreen(onBackToHome: () => setState(() => _currentTab = 0)),
+                RepaintBoundary(child: _buildHomeTab()),
+                RepaintBoundary(child: _buildHistoryTab()),
+                RepaintBoundary(
+                  child: SettingsScreen(onBackToHome: () => setState(() => _currentTab = 0)),
+                ),
               ],
             ),
           ),
@@ -188,7 +204,9 @@ class _HomeScreenState extends State<HomeScreen> {
             bottom: 0,
             child: SafeArea(
               top: false,
-              child: _buildLiquidBottomNav(),
+              child: RepaintBoundary(
+                child: _buildLiquidBottomNav(),
+              ),
             ),
           ),
         ],
@@ -220,12 +238,15 @@ class _HomeScreenState extends State<HomeScreen> {
         onChanged: (index) {
           setState(() => _currentTab = index);
           if (index == 1) {
-            final homeVM = context.read<HomeViewModel>();
-            final devId = homeVM.selectedDevice?.deviceId ??
-                (homeVM.devices.isNotEmpty ? homeVM.devices.first.deviceId : null);
-            if (devId != null) {
-              homeVM.fetchDeviceLogs(devId);
-            }
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              final homeVM = context.read<HomeViewModel>();
+              final devId = homeVM.selectedDevice?.deviceId ??
+                  (homeVM.devices.isNotEmpty ? homeVM.devices.first.deviceId : null);
+              if (devId != null) {
+                homeVM.fetchDeviceLogs(devId);
+              }
+            });
           }
         },
         pillStyle: LiquidGlassTabPillStyle(
@@ -439,14 +460,34 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    device.deviceId,
-                    style: const TextStyle(
-                      color: ParcelGlassColors.slateSubtitle,
-                      fontSize: 12,
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        device.deviceId,
+                        style: const TextStyle(
+                          color: ParcelGlassColors.slateSubtitle,
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: (device.isOwner ? ParcelGlassColors.mintSignal : ParcelGlassColors.accentBlue).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          device.isOwner ? 'OWNER' : 'CO-OWNER',
+                          style: TextStyle(
+                            color: device.isOwner ? const Color(0xFF047857) : ParcelGlassColors.accentBlue,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -551,76 +592,25 @@ class _HomeScreenState extends State<HomeScreen> {
           LiquidSlideToUnlock(
             isUnlocking: _isUnlocking,
             isLockerOnline: isOnline,
+            isUnlocked: isDoorOpen,
             onUnlock: () => _handleUnlock(device),
           ),
 
-          const SizedBox(height: 16),
-
-          // Courier Daily OTP Pass
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.8)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'COURIER PASS (DAILY OTP)',
-                      style: TextStyle(color: ParcelGlassColors.slateSubtitle, fontSize: 10, fontWeight: FontWeight.w800),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      '# 482910',
-                      style: TextStyle(
-                        color: ParcelGlassColors.navyTitle,
-                        fontSize: 22,
-                        fontFamily: 'monospace',
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 2.0,
-                      ),
-                    ),
-                  ],
+          // Co-Owner invite action (Owner only)
+          if (device.isOwner) ...[
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => _showInviteSheet(context, device.deviceId, device.name),
+                icon: const Icon(Icons.person_add_alt_1, size: 16, color: ParcelGlassColors.accentBlue),
+                label: const Text(
+                  'Invite Family / Co-Owner',
+                  style: TextStyle(color: ParcelGlassColors.accentBlue, fontWeight: FontWeight.bold, fontSize: 12),
                 ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: ParcelGlassColors.accentBlue,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 0,
-                  ),
-                  onPressed: () {
-                    Clipboard.setData(const ClipboardData(text: '482910'));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Delivery OTP copied to clipboard!')),
-                    );
-                  },
-                  icon: const Icon(Icons.share, size: 14),
-                  label: const Text('SHARE', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11)),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 10),
-
-          // Co-Owner invite action
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: () => _showInviteSheet(context, device.deviceId, device.name),
-              icon: const Icon(Icons.person_add_alt_1, size: 16, color: ParcelGlassColors.accentBlue),
-              label: const Text(
-                'Invite Family / Co-Owner',
-                style: TextStyle(color: ParcelGlassColors.accentBlue, fontWeight: FontWeight.bold, fontSize: 12),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -687,175 +677,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 )
               else
-                for (final log in home.logs) ...[
-                  _buildHistoryCapsule(log),
+                for (final log in home.logs.where((l) => l.action.toLowerCase() != 'door_open')) ...[
+                  ParcelHistoryTile(log: log),
                 ],
             ],
           ),
         ),
       ),
     );
-  }
-
-  Widget _buildHistoryCapsule(LogModel log) {
-    final actionLower = log.action.toLowerCase();
-    final isUnlock = actionLower.contains('unlock');
-    final isLock = actionLower.contains('lock') && !isUnlock;
-    final isDoorOpen = actionLower == 'door_open';
-    final isDelivery = actionLower.contains('delivery');
-
-    final IconData icon = isUnlock
-        ? Icons.lock_open_rounded
-        : (isLock
-            ? Icons.lock_rounded
-            : (isDelivery
-                ? Icons.inventory_2_outlined
-                : (isDoorOpen ? Icons.sensor_door_outlined : Icons.history_rounded)));
-
-    final Color iconColor = isUnlock
-        ? ParcelGlassColors.mintSignal
-        : (isLock
-            ? ParcelGlassColors.accentBlue
-            : (isDelivery
-                ? const Color(0xFF6366F1)
-                : (isDoorOpen ? ParcelGlassColors.amberSignal : ParcelGlassColors.slateSubtitle)));
-
-    String title;
-    if (isUnlock) {
-      title = 'Locker Unlocked';
-    } else if (isLock) {
-      title = 'Locker Locked & Secured';
-    } else if (isDoorOpen) {
-      title = 'Door Sensor Opened';
-    } else if (isDelivery) {
-      title = 'Package Delivered & Locked';
-    } else {
-      title = log.action.replaceAll('_', ' ').toUpperCase();
-    }
-
-    // Extract Actor Information (Owner / Co-Owner / Sensor)
-    final metadata = log.metadata ?? {};
-    final String? actorName = metadata['userName']?.toString();
-    final String? actorRole = metadata['userRole']?.toString();
-
-    final timeClock =
-        '${log.timestamp.hour.toString().padLeft(2, '0')}:${log.timestamp.minute.toString().padLeft(2, '0')}';
-    final timeStr = _formatLogTimestamp(log.timestamp);
-
-    return LiquidParcelCard(
-      borderRadius: 22,
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.14),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              color: iconColor,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: ParcelGlassColors.navyTitle,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                // Actor Info: Owner / Co-owner
-                if (actorName != null && actorName.isNotEmpty) ...[
-                  Row(
-                    children: [
-                      Text(
-                        'by $actorName',
-                        style: const TextStyle(
-                          color: ParcelGlassColors.slateSubtitle,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (actorRole != null && actorRole.isNotEmpty) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                          decoration: BoxDecoration(
-                            color: actorRole.toLowerCase().contains('owner') && !actorRole.toLowerCase().contains('co')
-                                ? ParcelGlassColors.mintSignal.withValues(alpha: 0.18)
-                                : ParcelGlassColors.accentBlue.withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            actorRole.toUpperCase(),
-                            style: TextStyle(
-                              color: actorRole.toLowerCase().contains('owner') && !actorRole.toLowerCase().contains('co')
-                                  ? const Color(0xFF047857)
-                                  : ParcelGlassColors.accentBlue,
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                ],
-                // Date & clock
-                Text(
-                  '$timeStr at $timeClock',
-                  style: TextStyle(
-                    color: ParcelGlassColors.slateSubtitle.withValues(alpha: 0.75),
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.7)),
-            ),
-            child: Text(
-              timeClock,
-              style: const TextStyle(
-                color: ParcelGlassColors.navyTitle,
-                fontSize: 11,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatLogTimestamp(DateTime dt) {
-    final now = DateTime.now();
-    final isToday = dt.year == now.year && dt.month == now.month && dt.day == now.day;
-    if (isToday) return 'Today';
-    final yesterday = now.subtract(const Duration(days: 1));
-    final isYesterday = dt.year == yesterday.year && dt.month == yesterday.month && dt.day == yesterday.day;
-    if (isYesterday) return 'Yesterday';
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
   }
 }

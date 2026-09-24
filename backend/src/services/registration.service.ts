@@ -1,6 +1,7 @@
 import { LockerRequest } from "../models/LockerRequest.model.js";
 import { Log } from "../models/Log.model.js";
 import { Device } from "../models/Device.model.js";
+import { User } from "../models/User.model.js";
 import mongoose from "mongoose";
 
 interface CreateLockerRequestParams {
@@ -48,8 +49,17 @@ export async function createLockerOrderRequest(params: CreateLockerRequestParams
 
 export async function redeemInviteCodeOnSignup(inviteCode: string, userId: mongoose.Types.ObjectId) {
   const cleanCode = inviteCode.trim().toUpperCase();
+  const rawAlphanumeric = cleanCode.replace(/[^A-Z0-9]/g, "");
+  const normalizedWithPrefix = rawAlphanumeric.startsWith("SBX")
+    ? `SBX-${rawAlphanumeric.substring(3)}`
+    : `SBX-${rawAlphanumeric}`;
+
   const device = await Device.findOne({
-    inviteCode: cleanCode,
+    $or: [
+      { inviteCode: cleanCode },
+      { inviteCode: normalizedWithPrefix },
+      { inviteCode: rawAlphanumeric },
+    ],
     inviteExpiresAt: { $gt: new Date() },
   });
 
@@ -59,10 +69,14 @@ export async function redeemInviteCodeOnSignup(inviteCode: string, userId: mongo
   const current = 1 + (device.coOwners ? device.coOwners.length : 0);
 
   if (current < allowed) {
-    device.coOwners.push(userId as any);
+    device.coOwners.push(userId);
     device.inviteCode = undefined;
     device.inviteExpiresAt = undefined;
     await device.save();
+
+    await User.findByIdAndUpdate(userId, {
+      $addToSet: { assignedDevices: device.deviceId },
+    });
 
     await Log.create({
       deviceId: device._id,

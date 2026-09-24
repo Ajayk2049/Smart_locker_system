@@ -154,18 +154,8 @@ export async function receiveTelemetry(request: FastifyRequest, reply: FastifyRe
     wsService.broadcastToDevice(targetId, deliveryMsg);
     wsService.broadcastToAll(deliveryMsg);
   } else {
-    await Log.create({
-      deviceId: device._id,
-      action: "door_open",
-      metadata: {
-        event: "door_opened",
-        source: "physical_sensor",
-        userName: "Door Sensor",
-        userRole: "Auto / Sensor",
-        deviceId: device.deviceId,
-      },
-    });
-
+    // Hardware door opened: notify WebSocket clients in real-time
+    // (We do not log a redundant 'door_open' entry so user unlock is the single source of truth)
     const openMsg = {
       type: "DOOR_OPEN",
       deviceId: targetId,

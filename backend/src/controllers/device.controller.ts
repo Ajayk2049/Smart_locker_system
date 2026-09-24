@@ -22,10 +22,21 @@ export async function getDevices(request: FastifyRequest, reply: FastifyReply) {
   const devices = await Device.find({
     $or: [{ ownerId: user.id }, { coOwners: user.id }],
   })
-    .populate("ownerId", "email")
-    .populate("coOwners", "email");
+    .populate("ownerId", "email name")
+    .populate("coOwners", "email name");
 
-  return reply.send({ devices });
+  const mapped = devices.map((d: any) => {
+    const obj = d.toObject ? d.toObject() : { ...d };
+    const ownerIdStr = d.ownerId?._id ? d.ownerId._id.toString() : d.ownerId?.toString();
+    const isOwner = ownerIdStr === user.id;
+    return {
+      ...obj,
+      isOwner,
+      userRole: isOwner ? "Owner" : "Co-Owner",
+    };
+  });
+
+  return reply.send({ devices: mapped });
 }
 
 // 2. Register or pair a new device for the logged-in user
@@ -155,6 +166,7 @@ export async function getDeviceLogs(request: FastifyRequest, reply: FastifyReply
 
   const logs = await Log.find({
     $or: [{ deviceId: device._id }, { "metadata.deviceId": device.deviceId }],
+    action: { $ne: "door_open" },
   })
     .sort({ timestamp: -1 })
     .limit(100);

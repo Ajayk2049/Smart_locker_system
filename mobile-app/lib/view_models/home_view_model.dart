@@ -178,7 +178,6 @@ class HomeViewModel extends ChangeNotifier {
 
   Future<void> fetchDeviceLogs(String deviceId) async {
     _selectedDeviceId = deviceId;
-    notifyListeners();
 
     try {
       final logsData = await _api.getDeviceLogs(deviceId);
