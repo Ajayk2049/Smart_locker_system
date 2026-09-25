@@ -24,6 +24,7 @@ import {
   cancelInviteCode,
   joinDevice,
 } from "../controllers/deviceSlot.controller.js";
+import { getSlotPricing } from "../controllers/pricing.controller.js";
 
 
 
@@ -31,6 +32,11 @@ export default async function deviceRoutes(fastify: FastifyInstance) {
   // 1. Diagnostic endpoint for hardware bench testing
   fastify.post("/test/unlock", {
     handler: testUnlockDevice,
+  });
+
+  // 1b. Public pricing endpoint for mobile app & web
+  fastify.get("/pricing/slots", {
+    handler: getSlotPricing,
   });
 
   // 2. IoT Hardware endpoints (ESP32 REST/HTTP short-polling & telemetry)

@@ -17,6 +17,8 @@ out/
 # Logs
 *.log
 npm-debug.log*
+logs/
+backend/logs/
 
 # OS files
 .DS_Store

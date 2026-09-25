@@ -1,7 +1,7 @@
 import React from "react";
-import { Box, Search, RefreshCw, Sun, Moon, LogOut, Cpu } from "lucide-react";
+import { Box, Search, RefreshCw, Sun, Moon, LogOut, Cpu, Tag } from "lucide-react";
 
-export type MainDashboardTab = "live" | "pending" | "all";
+export type MainDashboardTab = "live" | "pending" | "slot-upgrades" | "all";
 export type PendingSubFilter = "all" | "pending" | "preparing" | "dispatched";
 
 interface DashboardHeaderProps {
@@ -10,6 +10,7 @@ interface DashboardHeaderProps {
   onToggleTheme?: () => void;
   onLogout?: () => void;
   onRefresh: () => void;
+  onOpenPricing: () => void;
   isLoading: boolean;
   searchQuery: string;
   onSearchChange: (val: string) => void;
@@ -20,6 +21,7 @@ interface DashboardHeaderProps {
   filterCounts: {
     live: number;
     pending: number;
+    slotUpgrades: number;
     all: number;
     pendingBreakdown: {
       pending: number;
@@ -35,6 +37,7 @@ export function DashboardHeader({
   onToggleTheme,
   onLogout,
   onRefresh,
+  onOpenPricing,
   isLoading,
   searchQuery,
   onSearchChange,
@@ -64,6 +67,15 @@ export function DashboardHeader({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={onOpenPricing}
+              title="Declare & update slot prices"
+              className="h-10 px-3 rounded-none font-mono text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 hover:text-black hover:bg-[#00F5A0] border border-slate-200 dark:border-slate-800 transition-colors cursor-pointer flex items-center gap-1.5 bg-white dark:bg-[#080D14]"
+            >
+              <Tag className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span className="hidden sm:inline">Pricing</span>
+            </button>
+
             <a
               href="http://localhost:4300/simulator"
               target="_blank"
@@ -143,6 +155,7 @@ export function DashboardHeader({
               {[
                 { id: "live", label: "Live Devices", count: filterCounts.live },
                 { id: "pending", label: "Pending Orders", count: filterCounts.pending },
+                { id: "slot-upgrades", label: "Slot Upgrades", count: filterCounts.slotUpgrades },
                 { id: "all", label: "All Orders", count: filterCounts.all },
               ].map((tab) => {
                 const active = mainTab === tab.id;

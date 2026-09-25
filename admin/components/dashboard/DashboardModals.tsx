@@ -4,8 +4,14 @@ import { DispatchModal } from "../modals/DispatchModal";
 import { DeliveredModal } from "../modals/DeliveredModal";
 import { RejectModal } from "../modals/RejectModal";
 import { SimulatorModal } from "../modals/SimulatorModal";
+import { PricingModal, SlotPricingData } from "../modals/PricingModal";
 
 export interface DashboardModalsProps {
+  pricingModalOpen: boolean;
+  pricingData: SlotPricingData;
+  onClosePricing: () => void;
+  onSavePricing: (monthly: number, yearly: number) => Promise<void>;
+
   prepareModalData: {
     requestId: string;
     customerName: string;
@@ -57,6 +63,10 @@ export interface DashboardModalsProps {
 }
 
 export function DashboardModals({
+  pricingModalOpen,
+  pricingData,
+  onClosePricing,
+  onSavePricing,
   prepareModalData,
   assignDeviceIdInput,
   onAssignDeviceIdChange,
@@ -136,6 +146,13 @@ export function DashboardModals({
           onClose={onCloseSimulator}
         />
       )}
+
+      <PricingModal
+        isOpen={pricingModalOpen}
+        currentPricing={pricingData}
+        onClose={onClosePricing}
+        onSave={onSavePricing}
+      />
     </>
   );
 }

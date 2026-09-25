@@ -4,6 +4,7 @@ import '../../../models/device.model.dart';
 import '../../../services/api_service.dart';
 import '../../../view_models/home_view_model.dart';
 import '../../widgets/glass_theme.dart';
+import '../../home/widgets/co_owner_invite_sheet.dart';
 import 'unlock_slots_modal.dart';
 
 class ManageUsersDialog extends StatefulWidget {
@@ -345,8 +346,10 @@ class _ManageUsersDialogState extends State<ManageUsersDialog> {
             _buildSlotsSummary(),
             const SizedBox(height: 12),
             _buildSlotList(),
-            const SizedBox(height: 12),
-            _buildUnlockSlotsButton(),
+            if ((_slotsData?['allowedSlots'] ?? 2) < 5) ...[
+              const SizedBox(height: 12),
+              _buildUnlockSlotsButton(),
+            ],
           ],
         ],
       ],
@@ -687,6 +690,8 @@ class _ManageUsersDialogState extends State<ManageUsersDialog> {
   }
 
   Widget _buildAvailableSlotRow({required int slotNumber}) {
+    final isOwner = _slotsData?['isOwner'] ?? false;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -743,19 +748,46 @@ class _ManageUsersDialogState extends State<ManageUsersDialog> {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-            decoration: BoxDecoration(
-              color: ParcelGlassColors.amberSignal.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: const Text(
-              'AVAILABLE',
-              style: TextStyle(
-                color: ParcelGlassColors.amberSignal,
-                fontSize: 8.5,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.3,
+          InkWell(
+            onTap: () {
+              if (_selectedDevice != null && isOwner) {
+                CoOwnerInviteSheet.show(
+                  context,
+                  _selectedDevice!.deviceId,
+                  _selectedDevice!.name,
+                );
+              }
+            },
+            borderRadius: BorderRadius.circular(4),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: ParcelGlassColors.amberSignal.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: ParcelGlassColors.amberSignal.withValues(alpha: 0.5),
+                  width: 0.8,
+                ),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'AVAILABLE',
+                    style: TextStyle(
+                      color: ParcelGlassColors.amberSignal,
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  SizedBox(width: 3),
+                  Icon(
+                    Icons.person_add_alt_1,
+                    size: 10,
+                    color: ParcelGlassColors.amberSignal,
+                  ),
+                ],
               ),
             ),
           ),

@@ -139,57 +139,30 @@ class LockerHeroCard extends StatelessWidget {
 
           const SizedBox(height: 18),
 
-          // Hardware Metrics: Door Sensor + Solenoid Lock
+          // Hardware Metric: Single Door status indicator
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.white.withValues(alpha: 0.8)),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Column(
-                  children: [
-                    Icon(
-                      isDoorOpen ? Icons.door_front_door : Icons.door_back_door,
-                      size: 22,
-                      color: isDoorOpen ? ParcelGlassColors.amberSignal : ParcelGlassColors.navyTitle,
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'DOOR SENSOR',
-                      style: TextStyle(color: ParcelGlassColors.slateSubtitle, fontSize: 9, fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      isDoorOpen ? 'DOOR OPEN' : 'CLOSED',
-                      style: TextStyle(
-                        color: isDoorOpen ? ParcelGlassColors.amberSignal : ParcelGlassColors.navyTitle,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
+                Text(
+                  isDoorOpen ? '🚪' : '🔒',
+                  style: const TextStyle(fontSize: 18),
                 ),
-                Container(width: 1, height: 32, color: Colors.black12),
-                Column(
-                  children: [
-                    const Icon(Icons.lock, size: 22, color: ParcelGlassColors.navyTitle),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'SOLENOID',
-                      style: TextStyle(color: ParcelGlassColors.slateSubtitle, fontSize: 9, fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      isDoorOpen ? 'UNLATCHED' : 'ENGAGED',
-                      style: const TextStyle(
-                        color: ParcelGlassColors.navyTitle,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
+                const SizedBox(width: 8),
+                Text(
+                  isDoorOpen ? 'Door is open' : 'Door is closed',
+                  style: TextStyle(
+                    color: isDoorOpen ? ParcelGlassColors.amberSignal : ParcelGlassColors.navyTitle,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.2,
+                  ),
                 ),
               ],
             ),

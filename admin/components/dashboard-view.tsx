@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { RequestsTable, LockerRequestItem, LockerRequestStatus } from "./dashboard/RequestsTable";
+import { SlotRequestsTable, SlotRequestItem } from "./dashboard/SlotRequestsTable";
 import { DashboardHeader, MainDashboardTab, PendingSubFilter } from "./dashboard/DashboardHeader";
 import { DashboardModals } from "./dashboard/DashboardModals";
+import { SlotPricingData } from "./modals/PricingModal";
 
 export type { LockerRequestStatus, LockerRequestItem };
 
@@ -22,10 +24,19 @@ export function DashboardView({
   onToggleTheme,
 }: DashboardViewProps) {
   const [requests, setRequests] = useState<LockerRequestItem[]>([]);
+  const [slotRequests, setSlotRequests] = useState<SlotRequestItem[]>([]);
   const [mainTab, setMainTab] = useState<MainDashboardTab>("live");
   const [pendingSubFilter, setPendingSubFilter] = useState<PendingSubFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Pricing Modal state
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+  const [slotPricing, setSlotPricing] = useState<SlotPricingData>({
+    monthlyPrice: 149,
+    yearlyPrice: 999,
+    currency: "INR",
+  });
 
   // Modal states & inputs
   const [prepareModalData, setPrepareModalData] = useState<{ requestId: string; customerName: string; units: number; suggestedDeviceId: string } | null>(null);
@@ -70,6 +81,7 @@ export function DashboardView({
     }
 
     try {
+      // 1. Fetch Delivery Orders
       const res = await fetch(`${apiUrl}/admin/requests`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -79,16 +91,36 @@ export function DashboardView({
         if (onLogout) onLogout();
         return;
       }
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || `Server responded with ${res.status}`);
+      if (res.ok) {
+        const data = await res.json();
+        setRequests(data.requests || []);
       }
-      const data = await res.json();
-      setRequests(data.requests || []);
+
+      // 2. Fetch Slot Upgrade Requests
+      const slotRes = await fetch(`${apiUrl}/admin/slot-requests`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (slotRes.ok) {
+        const slotData = await slotRes.json();
+        setSlotRequests(slotData.requests || []);
+      }
+
+      // 3. Fetch Slot Pricing
+      const priceRes = await fetch(`${apiUrl}/admin/pricing/slots`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (priceRes.ok) {
+        const pData = await priceRes.json();
+        setSlotPricing({
+          monthlyPrice: pData.monthlyPrice,
+          yearlyPrice: pData.yearlyPrice,
+          currency: pData.currency || "INR",
+        });
+      }
     } catch (err: any) {
-      console.error("Error loading locker requests:", err);
+      console.error("Error loading admin data:", err);
       if (!silent) {
-        showNotification(err.message || "Could not sync latest locker requests", true);
+        showNotification(err.message || "Could not sync latest requests", true);
       }
     } finally {
       if (!silent) setIsLoading(false);
@@ -102,6 +134,104 @@ export function DashboardView({
     }, 4000);
     return () => clearInterval(interval);
   }, [loadRequests]);
+
+  // Save new Slot Pricing
+  const handleSavePricing = async (monthly: number, yearly: number) => {
+    const token = localStorage.getItem("admin_token");
+    const res = await fetch(`${apiUrl}/admin/pricing/slots`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ monthlyPrice: monthly, yearlyPrice: yearly }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to update pricing");
+
+    setSlotPricing({
+      monthlyPrice: monthly,
+      yearlyPrice: yearly,
+      currency: "INR",
+    });
+    showNotification("Slot pricing declared and updated for all users!");
+  };
+
+  // Approve Slot Request (unlocks all 3 extra slots to 5 total)
+  const handleApproveSlotRequest = async (item: SlotRequestItem) => {
+    const token = localStorage.getItem("admin_token");
+    try {
+      const res = await fetch(`${apiUrl}/admin/slot-requests/${item._id}/approve`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ adminNotes: "Approved via Admin Dashboard after phone confirmation" }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to approve slot upgrade");
+
+      showNotification(`All 3 extra slots unlocked for ${item.customerName} on ${item.deviceStringId}! (5 slots capacity live)`);
+      await loadRequests(true);
+    } catch (err: any) {
+      showNotification(err.message || "Failed to approve slot upgrade", true);
+    }
+  };
+
+  // Reject Slot Request
+  const handleRejectSlotRequest = async (item: SlotRequestItem) => {
+    const token = localStorage.getItem("admin_token");
+    try {
+      const res = await fetch(`${apiUrl}/admin/slot-requests/${item._id}/reject`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ adminNotes: "Declined by operator" }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to reject slot request");
+
+      showNotification(`Slot upgrade request for ${item.customerName} declined.`);
+      await loadRequests(true);
+    } catch (err: any) {
+      showNotification(err.message || "Failed to reject slot request", true);
+    }
+  };
+
+  // Revoke Slot Request (Takes locker back to 2 slots only)
+  const handleRevokeSlotRequest = async (item: SlotRequestItem) => {
+    const ok = window.confirm(
+      `Are you sure you want to revoke extra slots for ${item.customerName} on locker ${item.deviceStringId}? This will reset the locker capacity back to 2 slots only.`
+    );
+    if (!ok) return;
+
+    const token = localStorage.getItem("admin_token");
+    try {
+      const res = await fetch(`${apiUrl}/admin/slot-requests/${item._id}/revoke`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ adminNotes: "Revoked back to 2 slots by operator" }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to revoke slots");
+
+      showNotification(`Locker ${item.deviceStringId} reset to 2 base slots successfully.`);
+      await loadRequests(true);
+    } catch (err: any) {
+      showNotification(err.message || "Failed to revoke slots", true);
+    }
+  };
+
 
   // Transition handlers
   const handleConfirmPrepare = async () => {
@@ -237,9 +367,12 @@ export function DashboardView({
       else if (s === "delivered") deliveredCount++;
     });
 
+    const pendingSlotUpgrades = slotRequests.filter((s) => s.status === "pending").length;
+
     return {
       live: deliveredCount,
       pending: pendingCount + preparingCount + dispatchedCount,
+      slotUpgrades: pendingSlotUpgrades,
       all: requests.length,
       pendingBreakdown: {
         pending: pendingCount,
@@ -247,7 +380,7 @@ export function DashboardView({
         dispatched: dispatchedCount,
       },
     };
-  }, [requests]);
+  }, [requests, slotRequests]);
 
   const filteredRequests = useMemo(() => {
     return requests.filter((r) => {
@@ -302,62 +435,77 @@ export function DashboardView({
         pendingSubFilter={pendingSubFilter}
         onPendingSubFilterChange={setPendingSubFilter}
         filterCounts={filterCounts}
+        onOpenPricing={() => setIsPricingModalOpen(true)}
       />
 
       <main className="flex-1 w-full px-6 sm:px-8 lg:px-10 pt-2 pb-12 flex flex-col gap-6">
-        <RequestsTable
-          requests={filteredRequests}
-          isLoading={isLoading}
-          onOpenPrepare={(req) => {
-            const usedIds = new Set(requests.flatMap((r) => r.assignedDeviceIds || []));
-            let nextNum = 1;
-            while (usedIds.has(`BOX_${String(nextNum).padStart(3, "0")}`)) {
-              nextNum++;
-            }
-            const nextSuggestedId = `BOX_${String(nextNum).padStart(3, "0")}`;
-            setPrepareModalData({
-              requestId: req._id,
-              customerName: req.name,
-              units: req.units,
-              suggestedDeviceId: nextSuggestedId,
-            });
-            setAssignDeviceIdInput(nextSuggestedId);
-            setPrepareNotesInput("");
-          }}
-          onOpenDispatch={(req) => {
-            setDispatchModalData({
-              requestId: req._id,
-              customerName: req.name,
-              deviceId: req.assignedDeviceIds?.[0] || "BOX_001",
-            });
-            setDispatchNotesInput("");
-          }}
-          onOpenDeliver={(req) => {
-            setDeliverModalData({
-              requestId: req._id,
-              customerName: req.name,
-              phone: req.phone,
-              deviceId: req.assignedDeviceIds?.[0] || "BOX_001",
-            });
-          }}
-          onOpenReject={(req) => {
-            setRejectModalData({
-              requestId: req._id,
-              customerName: req.name,
-            });
-            setRejectionReasonInput("");
-          }}
-          onSimulateDevice={(req, deviceId) => {
-            setSimulatorModalData({
-              deviceId,
-              customerName: req.name,
-            });
-          }}
-        />
+        {mainTab === "slot-upgrades" ? (
+          <SlotRequestsTable
+            requests={slotRequests}
+            isLoading={isLoading}
+            onApprove={handleApproveSlotRequest}
+            onReject={handleRejectSlotRequest}
+            onRevoke={handleRevokeSlotRequest}
+          />
+        ) : (
+          <RequestsTable
+            requests={filteredRequests}
+            isLoading={isLoading}
+            onOpenPrepare={(req) => {
+              const usedIds = new Set(requests.flatMap((r) => r.assignedDeviceIds || []));
+              let nextNum = 1;
+              while (usedIds.has(`BOX_${String(nextNum).padStart(3, "0")}`)) {
+                nextNum++;
+              }
+              const nextSuggestedId = `BOX_${String(nextNum).padStart(3, "0")}`;
+              setPrepareModalData({
+                requestId: req._id,
+                customerName: req.name,
+                units: req.units,
+                suggestedDeviceId: nextSuggestedId,
+              });
+              setAssignDeviceIdInput(nextSuggestedId);
+              setPrepareNotesInput("");
+            }}
+            onOpenDispatch={(req) => {
+              setDispatchModalData({
+                requestId: req._id,
+                customerName: req.name,
+                deviceId: req.assignedDeviceIds?.[0] || "BOX_001",
+              });
+              setDispatchNotesInput("");
+            }}
+            onOpenDeliver={(req) => {
+              setDeliverModalData({
+                requestId: req._id,
+                customerName: req.name,
+                phone: req.phone,
+                deviceId: req.assignedDeviceIds?.[0] || "BOX_001",
+              });
+            }}
+            onOpenReject={(req) => {
+              setRejectModalData({
+                requestId: req._id,
+                customerName: req.name,
+              });
+              setRejectionReasonInput("");
+            }}
+            onSimulateDevice={(req, deviceId) => {
+              setSimulatorModalData({
+                deviceId,
+                customerName: req.name,
+              });
+            }}
+          />
+        )}
       </main>
 
       {/* Standalone Modals */}
       <DashboardModals
+        pricingModalOpen={isPricingModalOpen}
+        pricingData={slotPricing}
+        onClosePricing={() => setIsPricingModalOpen(false)}
+        onSavePricing={handleSavePricing}
         prepareModalData={prepareModalData}
         assignDeviceIdInput={assignDeviceIdInput}
         onAssignDeviceIdChange={setAssignDeviceIdInput}

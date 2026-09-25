@@ -3,6 +3,9 @@ import mongoose from "mongoose";
 import { Device } from "../models/Device.model.js";
 import { Log } from "../models/Log.model.js";
 import { User } from "../models/User.model.js";
+import { SlotRequest } from "../models/SlotRequest.model.js";
+import { SystemConfig } from "../models/SystemConfig.model.js";
+import { wsService } from "../services/websocket.service.js";
 
 function isAuthorizedUser(device: any, userId: string): boolean {
   const isOwner = device.ownerId?.toString() === userId || device.ownerId?._id?.toString() === userId;
@@ -370,11 +373,11 @@ export async function renameCoOwner(request: FastifyRequest, reply: FastifyReply
   });
 }
 
-// 8. Request Slot Upgrade (User sends request to Admin)
+// 8. Request Slot Upgrade (User sends request to Admin to unlock all 3 extra slots to 5 total)
 export async function requestSlotUpgrade(request: FastifyRequest, reply: FastifyReply) {
   const { id } = request.params as { id: string };
   const user = request.user as { id: string };
-  const { desiredSlots, notes } = (request.body as { desiredSlots?: number; notes?: string }) || {};
+  const { desiredSlots, notes, plan } = (request.body as { desiredSlots?: number; notes?: string; plan?: "monthly" | "yearly" }) || {};
 
   const device = await findDeviceByIdOrDeviceId(id);
   if (!device) {
@@ -386,12 +389,46 @@ export async function requestSlotUpgrade(request: FastifyRequest, reply: Fastify
   }
 
   const dbUser = await User.findById(user.id);
-  const targetSlots = desiredSlots ? Math.min(5, Math.max(3, desiredSlots)) : 5;
+  const targetSlots = 5; // All 3 extra slots are unlocked at once
+  const chosenPlan = plan === "monthly" ? "monthly" : "yearly";
+
+  const config = await SystemConfig.findOne({ key: "slot_pricing" });
+  const priceAtRequest = config ? (chosenPlan === "monthly" ? config.monthlyPrice : config.yearlyPrice) : (chosenPlan === "monthly" ? 149 : 999);
+
+  // Check if there is already an existing pending request for this device
+  let slotReq = await SlotRequest.findOne({
+    deviceId: device._id,
+    status: "pending",
+  });
+
+  if (slotReq) {
+    slotReq.plan = chosenPlan;
+    slotReq.priceAtRequest = priceAtRequest;
+    slotReq.notes = notes || slotReq.notes;
+    await slotReq.save();
+  } else {
+    slotReq = await SlotRequest.create({
+      userId: user.id,
+      deviceId: device._id,
+      deviceStringId: device.deviceId,
+      deviceName: device.name,
+      customerName: dbUser?.name || "Customer",
+      customerPhone: dbUser?.phone || "",
+      customerEmail: dbUser?.email || "",
+      currentSlots: device.allowedSlots || 2,
+      desiredSlots: targetSlots,
+      plan: chosenPlan,
+      priceAtRequest,
+      status: "pending",
+      notes: notes || `Requested ${chosenPlan} plan upgrade to 5 slots`,
+    });
+  }
 
   await Log.create({
     deviceId: device._id,
     action: "slot_upgrade_requested",
     metadata: {
+      requestId: slotReq._id,
       requestedBy: user.id,
       userName: dbUser?.name || dbUser?.email || "User",
       userPhone: dbUser?.phone || "",
@@ -400,15 +437,30 @@ export async function requestSlotUpgrade(request: FastifyRequest, reply: Fastify
       deviceName: device.name,
       currentSlots: device.allowedSlots || 2,
       desiredSlots: targetSlots,
+      plan: chosenPlan,
+      price: priceAtRequest,
       notes: notes || "Requested via mobile app",
     },
   });
 
+  // Broadcast instant alert to Admin Dashboard
+  wsService.broadcastToAll({
+    type: "NEW_SLOT_UPGRADE_REQUEST",
+    requestId: slotReq._id,
+    customerName: slotReq.customerName,
+    customerPhone: slotReq.customerPhone,
+    deviceId: device.deviceId,
+    deviceName: device.name,
+    plan: chosenPlan,
+    price: priceAtRequest,
+  });
+
   return reply.send({
     success: true,
-    message: `Upgrade request for ${targetSlots} slots submitted to admin review!`,
+    message: `Upgrade application submitted! Admin will contact you at ${dbUser?.phone || "your phone"} to activate your extra slots.`,
     currentSlots: device.allowedSlots || 2,
     desiredSlots: targetSlots,
+    request: slotReq,
   });
 }
 

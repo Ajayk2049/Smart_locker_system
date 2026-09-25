@@ -4,7 +4,6 @@ import { Log } from "../models/Log.model.js";
 import { User } from "../models/User.model.js";
 import { commandQueueService } from "../services/commandQueue.service.js";
 import { wsService } from "../services/websocket.service.js";
-import { emailService } from "../services/email.service.js";
 
 // 1. Diagnostics endpoint for bench testing: POST /api/test/unlock
 export async function testUnlockDevice(request: FastifyRequest, reply: FastifyReply) {
@@ -139,11 +138,6 @@ export async function receiveTelemetry(request: FastifyRequest, reply: FastifyRe
         deviceId: device.deviceId,
       },
     });
-
-    const owner = await User.findById(device.ownerId);
-    if (owner && owner.email) {
-      await emailService.sendDeliveryNotification(owner.email, device.name);
-    }
 
     const deliveryMsg = {
       type: "DELIVERY_SUCCESS",

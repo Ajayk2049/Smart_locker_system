@@ -261,11 +261,27 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> requestSlotUpgrade(String deviceId, {int desiredSlots = 5, String? notes}) async {
+  Future<Map<String, dynamic>> getSlotPricing() async {
+    try {
+      final dio = await authDio;
+      final response = await dio.get('/api/pricing/slots');
+      return response.data;
+    } on DioException catch (e) {
+      throw Exception(extractErrorMessage(e, 'Failed to fetch slot pricing'));
+    }
+  }
+
+  Future<Map<String, dynamic>> requestSlotUpgrade(
+    String deviceId, {
+    int desiredSlots = 5,
+    String? plan = 'yearly',
+    String? notes,
+  }) async {
     try {
       final dio = await authDio;
       final response = await dio.post('/api/devices/$deviceId/slots/upgrade', data: {
         'desiredSlots': desiredSlots,
+        if (plan != null) 'plan': plan,
         if (notes != null) 'notes': notes,
       });
       return response.data;

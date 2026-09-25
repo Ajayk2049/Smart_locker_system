@@ -15,6 +15,14 @@ import {
   getAllRequests,
   updateRequestStatus,
 } from "../controllers/adminRequests.controller.js";
+import {
+  getSlotPricing,
+  updateSlotPricing,
+  getAllSlotRequests,
+  approveSlotRequest,
+  rejectSlotRequest,
+  revokeSlotRequest,
+} from "../controllers/pricing.controller.js";
 
 export default async function adminRoutes(fastify: FastifyInstance) {
   fastify.addHook("onRequest", adminMiddleware);
@@ -64,4 +72,31 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   fastify.get("/admin/devices/:id/logs", {
     handler: getDeviceLogsForAdmin,
   });
+
+  // Slot Pricing (Admin view & edit)
+  fastify.get("/admin/pricing/slots", {
+    handler: getSlotPricing,
+  });
+
+  fastify.patch("/admin/pricing/slots", {
+    handler: updateSlotPricing,
+  });
+
+  // Slot Upgrade Applications (Admin review, customer contact, approve all 3 slots, revoke back to 2 slots)
+  fastify.get("/admin/slot-requests", {
+    handler: getAllSlotRequests,
+  });
+
+  fastify.patch("/admin/slot-requests/:id/approve", {
+    handler: approveSlotRequest,
+  });
+
+  fastify.patch("/admin/slot-requests/:id/reject", {
+    handler: rejectSlotRequest,
+  });
+
+  fastify.patch("/admin/slot-requests/:id/revoke", {
+    handler: revokeSlotRequest,
+  });
 }
+

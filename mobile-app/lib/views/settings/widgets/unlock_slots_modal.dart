@@ -42,8 +42,35 @@ class UnlockSlotsModal extends StatefulWidget {
 
 class _UnlockSlotsModalState extends State<UnlockSlotsModal> {
   bool _isSubmitting = false;
+  bool _isLoadingPricing = true;
   final int _selectedTier = 5; // 5 slots total
   String _selectedPlan = 'yearly'; // 'monthly' or 'yearly'
+
+  int _monthlyPrice = 149;
+  int _yearlyPrice = 999;
+  int _savingsPercent = 44;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPricing();
+  }
+
+  Future<void> _fetchPricing() async {
+    try {
+      final data = await ApiService().getSlotPricing();
+      if (mounted) {
+        setState(() {
+          _monthlyPrice = (data['monthlyPrice'] as num?)?.toInt() ?? 149;
+          _yearlyPrice = (data['yearlyPrice'] as num?)?.toInt() ?? 999;
+          _savingsPercent = (data['savingsPercent'] as num?)?.toInt() ?? 44;
+          _isLoadingPricing = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingPricing = false);
+    }
+  }
 
   Future<void> _handleSubmit() async {
     setState(() => _isSubmitting = true);
@@ -51,7 +78,8 @@ class _UnlockSlotsModalState extends State<UnlockSlotsModal> {
       final res = await ApiService().requestSlotUpgrade(
         widget.deviceId,
         desiredSlots: _selectedTier,
-        notes: 'Requested $_selectedPlan plan for $_selectedTier slots',
+        plan: _selectedPlan,
+        notes: 'Requested $_selectedPlan plan to unlock all 3 extra slots (5 total)',
       );
 
       if (mounted) {
@@ -59,7 +87,7 @@ class _UnlockSlotsModalState extends State<UnlockSlotsModal> {
         widget.onRequestSent();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(res['message'] ?? 'Upgrade request submitted to admin successfully!'),
+            content: Text(res['message'] ?? 'Upgrade application submitted! Admin will contact you.'),
             backgroundColor: ParcelGlassColors.mintSignal,
           ),
         );
@@ -134,30 +162,37 @@ class _UnlockSlotsModalState extends State<UnlockSlotsModal> {
         const SizedBox(height: 14),
 
         // Plan Choice Cards
-        Row(
-          children: [
-            Expanded(
-              child: _buildPlanCard(
-                planId: 'monthly',
-                title: 'Monthly',
-                price: '₹149',
-                period: '/ mo',
-                subtitle: 'Flexible family access',
+        _isLoadingPricing
+            ? const Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: CircularProgressIndicator(strokeWidth: 2, color: ParcelGlassColors.navyTitle),
+                ),
+              )
+            : Row(
+                children: [
+                  Expanded(
+                    child: _buildPlanCard(
+                      planId: 'monthly',
+                      title: 'Monthly',
+                      price: '₹$_monthlyPrice',
+                      period: '/ mo',
+                      subtitle: 'Flexible family access',
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildPlanCard(
+                      planId: 'yearly',
+                      title: 'Annual',
+                      price: '₹$_yearlyPrice',
+                      period: '/ yr',
+                      subtitle: 'Save $_savingsPercent% yearly',
+                      isBestValue: true,
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _buildPlanCard(
-                planId: 'yearly',
-                title: 'Annual',
-                price: '₹999',
-                period: '/ yr',
-                subtitle: 'Save 44% yearly',
-                isBestValue: true,
-              ),
-            ),
-          ],
-        ),
         const SizedBox(height: 16),
 
         // Benefits summary
