@@ -204,6 +204,31 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> updateProfile({String? name, String? email}) async {
+    try {
+      final dio = await authDio;
+      final response = await dio.patch('/api/auth/profile', data: {
+        if (name != null) 'name': name.trim(),
+        if (email != null) 'email': email.trim(),
+      });
+      return response.data;
+    } on DioException catch (e) {
+      throw Exception(extractErrorMessage(e, 'Failed to update profile'));
+    }
+  }
+
+  Future<Map<String, dynamic>> updateDeviceName(String deviceId, String name) async {
+    try {
+      final dio = await authDio;
+      final response = await dio.patch('/api/devices/$deviceId/name', data: {
+        'name': name.trim(),
+      });
+      return response.data;
+    } on DioException catch (e) {
+      throw Exception(extractErrorMessage(e, 'Failed to rename locker'));
+    }
+  }
+
   Future<Map<String, dynamic>> getDeviceSlots(String deviceId) async {
     try {
       final dio = await authDio;
@@ -213,4 +238,42 @@ class ApiService {
       throw Exception(extractErrorMessage(e, 'Failed to load locker access slots'));
     }
   }
+
+  Future<Map<String, dynamic>> removeCoOwner(String deviceId, String userId) async {
+    try {
+      final dio = await authDio;
+      final response = await dio.delete('/api/devices/$deviceId/co-owners/$userId');
+      return response.data;
+    } on DioException catch (e) {
+      throw Exception(extractErrorMessage(e, 'Failed to revoke co-owner access'));
+    }
+  }
+
+  Future<Map<String, dynamic>> renameCoOwner(String deviceId, String userId, String nickname) async {
+    try {
+      final dio = await authDio;
+      final response = await dio.patch('/api/devices/$deviceId/co-owners/$userId', data: {
+        'nickname': nickname.trim(),
+      });
+      return response.data;
+    } on DioException catch (e) {
+      throw Exception(extractErrorMessage(e, 'Failed to rename co-owner'));
+    }
+  }
+
+  Future<Map<String, dynamic>> requestSlotUpgrade(String deviceId, {int desiredSlots = 5, String? notes}) async {
+    try {
+      final dio = await authDio;
+      final response = await dio.post('/api/devices/$deviceId/slots/upgrade', data: {
+        'desiredSlots': desiredSlots,
+        if (notes != null) 'notes': notes,
+      });
+      return response.data;
+    } on DioException catch (e) {
+      throw Exception(extractErrorMessage(e, 'Failed to submit slot upgrade request'));
+    }
+  }
 }
+
+
+

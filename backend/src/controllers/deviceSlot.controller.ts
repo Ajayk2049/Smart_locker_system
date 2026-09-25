@@ -290,8 +290,8 @@ export async function getDeviceSlots(request: FastifyRequest, reply: FastifyRepl
     : Device.findOne({ deviceId: id.trim().toUpperCase() });
 
   const device = await query
-    .populate("ownerId", "email")
-    .populate("coOwners", "email");
+    .populate("ownerId", "email name phone")
+    .populate("coOwners", "email name phone");
 
   if (!device) {
     return reply.status(404).send({ error: "Device not found" });
@@ -305,6 +305,19 @@ export async function getDeviceSlots(request: FastifyRequest, reply: FastifyRepl
   const usedSlots = 1 + device.coOwners.length;
   const lockedSlots = 5 - allowedSlots;
 
+  const nicknamesObj: Record<string, string> = {};
+  if (device.coOwnerNicknames) {
+    if (device.coOwnerNicknames instanceof Map) {
+      device.coOwnerNicknames.forEach((val, key) => {
+        nicknamesObj[key] = val;
+      });
+    } else {
+      Object.assign(nicknamesObj, device.coOwnerNicknames);
+    }
+  }
+
+  const isOwner = device.ownerId._id?.toString() === user.id || device.ownerId.toString() === user.id;
+
   return reply.send({
     deviceId: device.deviceId,
     name: device.name,
@@ -315,5 +328,88 @@ export async function getDeviceSlots(request: FastifyRequest, reply: FastifyRepl
     availableSlots: Math.max(0, allowedSlots - usedSlots),
     primaryOwner: device.ownerId,
     coOwners: device.coOwners,
+    coOwnerNicknames: nicknamesObj,
+    isOwner,
   });
 }
+
+// 7. Rename Co-Owner Alias
+export async function renameCoOwner(request: FastifyRequest, reply: FastifyReply) {
+  const { id, userId } = request.params as { id: string; userId: string };
+  const user = request.user as { id: string };
+  const { nickname } = (request.body as { nickname?: string }) || {};
+
+  const device = await findDeviceByIdOrDeviceId(id);
+  if (!device) {
+    return reply.status(404).send({ error: "Device not found" });
+  }
+
+  if (device.ownerId.toString() !== user.id) {
+    return reply.status(403).send({ error: "Only the primary owner can rename co-owners" });
+  }
+
+  if (!device.coOwnerNicknames) {
+    device.coOwnerNicknames = new Map();
+  }
+
+  const cleanNick = (nickname || "").trim();
+  if (cleanNick) {
+    device.coOwnerNicknames.set(userId, cleanNick);
+  } else {
+    device.coOwnerNicknames.delete(userId);
+  }
+
+  device.markModified("coOwnerNicknames");
+  await device.save();
+
+  return reply.send({
+    success: true,
+    message: "Co-owner renamed successfully",
+    userId,
+    nickname: cleanNick,
+  });
+}
+
+// 8. Request Slot Upgrade (User sends request to Admin)
+export async function requestSlotUpgrade(request: FastifyRequest, reply: FastifyReply) {
+  const { id } = request.params as { id: string };
+  const user = request.user as { id: string };
+  const { desiredSlots, notes } = (request.body as { desiredSlots?: number; notes?: string }) || {};
+
+  const device = await findDeviceByIdOrDeviceId(id);
+  if (!device) {
+    return reply.status(404).send({ error: "Device not found" });
+  }
+
+  if (device.ownerId.toString() !== user.id) {
+    return reply.status(403).send({ error: "Only the primary owner can request slot upgrades" });
+  }
+
+  const dbUser = await User.findById(user.id);
+  const targetSlots = desiredSlots ? Math.min(5, Math.max(3, desiredSlots)) : 5;
+
+  await Log.create({
+    deviceId: device._id,
+    action: "slot_upgrade_requested",
+    metadata: {
+      requestedBy: user.id,
+      userName: dbUser?.name || dbUser?.email || "User",
+      userPhone: dbUser?.phone || "",
+      userEmail: dbUser?.email || "",
+      deviceId: device.deviceId,
+      deviceName: device.name,
+      currentSlots: device.allowedSlots || 2,
+      desiredSlots: targetSlots,
+      notes: notes || "Requested via mobile app",
+    },
+  });
+
+  return reply.send({
+    success: true,
+    message: `Upgrade request for ${targetSlots} slots submitted to admin review!`,
+    currentSlots: device.allowedSlots || 2,
+    desiredSlots: targetSlots,
+  });
+}
+
+

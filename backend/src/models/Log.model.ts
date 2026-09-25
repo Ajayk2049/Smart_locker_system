@@ -11,6 +11,7 @@ export interface ILog extends Document {
     | "co_owner_added"
     | "co_owner_removed"
     | "admin_slot_update"
+    | "slot_upgrade_requested"
     | "order_requested"
     | "order_approved"
     | "order_rejected"
@@ -18,6 +19,7 @@ export interface ILog extends Document {
   timestamp: Date;
   metadata?: Record<string, unknown>;
 }
+
 
 const logSchema = new Schema<ILog>(
   {

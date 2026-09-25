@@ -58,7 +58,6 @@ class _LiquidSlideToUnlockState extends State<LiquidSlideToUnlock> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryTextColor = ParcelGlassColors.textPrimary(context);
 
     return LayoutBuilder(
@@ -70,22 +69,20 @@ class _LiquidSlideToUnlockState extends State<LiquidSlideToUnlock> {
         final currentOffset = _dragProgress * maxOffset;
 
         final Color borderColor = widget.isUnlocked
-            ? ParcelGlassColors.amberSignal.withValues(alpha: isDark ? 0.45 : 0.65)
+            ? ParcelGlassColors.amberSignal.withValues(alpha: 0.65)
             : (widget.isLockerOnline
-                ? ParcelGlassColors.mintSignal.withValues(alpha: isDark ? 0.35 : 0.5)
-                : (isDark ? Colors.white12 : Colors.black12));
+                ? ParcelGlassColors.mintSignal.withValues(alpha: 0.5)
+                : Colors.black12);
 
         final Color trackBgColor = widget.isUnlocked
-            ? ParcelGlassColors.amberSignal.withValues(alpha: isDark ? 0.12 : 0.16)
-            : (isDark
-                ? const Color(0xFF1B130E).withValues(alpha: 0.65)
-                : Colors.black.withValues(alpha: 0.05));
+            ? ParcelGlassColors.amberSignal.withValues(alpha: 0.16)
+            : Colors.black.withValues(alpha: 0.05);
 
         final Color thumbColor = widget.isUnlocked
             ? ParcelGlassColors.amberSignal
             : (widget.isLockerOnline
                 ? ParcelGlassColors.mintSignal
-                : (isDark ? const Color(0xFF3D2310) : Colors.grey.shade400));
+                : Colors.grey.shade400);
 
         return ClipRRect(
           borderRadius: BorderRadius.circular(32),
@@ -115,8 +112,8 @@ class _LiquidSlideToUnlockState extends State<LiquidSlideToUnlock> {
                           borderRadius: BorderRadius.circular(32),
                           gradient: LinearGradient(
                             colors: [
-                              ParcelGlassColors.mintSignal.withValues(alpha: isDark ? 0.12 : 0.20),
-                              ParcelGlassColors.mintSignal.withValues(alpha: isDark ? 0.40 : 0.50),
+                              ParcelGlassColors.mintSignal.withValues(alpha: 0.20),
+                              ParcelGlassColors.mintSignal.withValues(alpha: 0.50),
                             ],
                           ),
                         ),
@@ -184,10 +181,8 @@ class _LiquidSlideToUnlockState extends State<LiquidSlideToUnlock> {
                                         : 'LOCKER IS OFFLINE',
                                     style: TextStyle(
                                       color: widget.isLockerOnline
-                                          ? (isDark
-                                              ? Colors.white.withValues(alpha: (0.7 - (_dragProgress * 0.5)).clamp(0.0, 1.0))
-                                              : primaryTextColor.withValues(alpha: (0.7 - (_dragProgress * 0.5)).clamp(0.0, 1.0)))
-                                          : (isDark ? Colors.white38 : Colors.black38),
+                                          ? primaryTextColor.withValues(alpha: (0.7 - (_dragProgress * 0.5)).clamp(0.0, 1.0))
+                                          : Colors.black38,
                                       fontWeight: FontWeight.w900,
                                       fontSize: 12,
                                       letterSpacing: 1.2,

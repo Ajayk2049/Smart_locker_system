@@ -7,10 +7,11 @@ class NetworkHostDialog extends StatefulWidget {
   const NetworkHostDialog({super.key});
 
   static Future<void> show(BuildContext context) {
-    return showDialog(
+    return showParcelGlassDialog(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.7),
-      builder: (_) => const NetworkHostDialog(),
+      width: 340,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      child: const NetworkHostDialog(),
     );
   }
 
@@ -70,7 +71,7 @@ class _NetworkHostDialogState extends State<NetworkHostDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Server set to: http://${AppConfig.currentHost}'),
-          backgroundColor: ParcelGlassColors.parcelBrown,
+          backgroundColor: ParcelGlassColors.accentBlue,
         ),
       );
     }
@@ -78,229 +79,209 @@ class _NetworkHostDialogState extends State<NetworkHostDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      child: LiquidParcelCard(
-        blur: 24,
-        borderRadius: 20,
-        borderColor: Colors.white.withValues(alpha: 0.18),
-        color: const Color(0xFF1E150F).withValues(alpha: 0.9),
-        padding: const EdgeInsets.all(22),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Header
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: ParcelGlassColors.accentBlue.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.wifi,
+                    color: ParcelGlassColors.accentBlue,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'SERVER HOST',
+                  style: TextStyle(
+                    color: ParcelGlassColors.navyTitle,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+            IconButton(
+              icon: const Icon(Icons.close, color: ParcelGlassColors.slateSubtitle, size: 20),
+              onPressed: () => Navigator.pop(context),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Host Input Field
+        TextFormField(
+          controller: _hostController,
+          style: const TextStyle(
+            color: ParcelGlassColors.navyTitle,
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.bold,
+            fontSize: 13.5,
+          ),
+          decoration: InputDecoration(
+            labelText: 'BACKEND HOST & PORT',
+            hintText: '192.168.0.101:4300',
+            labelStyle: const TextStyle(color: ParcelGlassColors.slateSubtitle, fontSize: 11.5, fontWeight: FontWeight.bold),
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.25),
+            prefixIcon: const Icon(Icons.dns, color: ParcelGlassColors.accentBlue, size: 18),
+            suffixIcon: IconButton(
+              icon: _testing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: ParcelGlassColors.accentBlue,
+                      ),
+                    )
+                  : const Icon(Icons.refresh, color: ParcelGlassColors.accentBlue, size: 20),
+              onPressed: _testing ? null : () => _testConnection(),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.50), width: 1.0),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.50), width: 1.0),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: ParcelGlassColors.accentBlue, width: 1.6),
+            ),
+          ),
+        ),
+
+
+        const SizedBox(height: 10),
+
+        // Quick Presets
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: [
+            _presetChip('192.168.0.101:4300', 'Laptop Wi-Fi'),
+            _presetChip('10.0.2.2:4300', 'Android Emulator'),
+            _presetChip('localhost:4300', 'Localhost'),
+          ],
+        ),
+
+        const SizedBox(height: 12),
+
+        // Status Banner
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: _isHealthy == true
+                ? ParcelGlassColors.mintSignal.withValues(alpha: 0.12)
+                : _isHealthy == false
+                    ? ParcelGlassColors.alertRose.withValues(alpha: 0.12)
+                    : ParcelGlassColors.amberSignal.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: _isHealthy == true
+                  ? ParcelGlassColors.mintSignal.withValues(alpha: 0.35)
+                  : _isHealthy == false
+                      ? ParcelGlassColors.alertRose.withValues(alpha: 0.35)
+                      : ParcelGlassColors.amberSignal.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: ParcelGlassColors.mintSignal.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: ParcelGlassColors.mintSignal.withValues(alpha: 0.4),
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.wifi,
-                      color: ParcelGlassColors.mintSignal,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Wi-Fi Server Connect',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          'Local development network settings',
-                          style: TextStyle(
-                            color: Colors.white60,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white60, size: 20),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
+              Icon(
+                _isHealthy == true
+                    ? Icons.check_circle
+                    : _isHealthy == false
+                        ? Icons.error
+                        : Icons.sync,
+                size: 16,
+                color: _isHealthy == true
+                    ? ParcelGlassColors.mintSignal
+                    : _isHealthy == false
+                        ? ParcelGlassColors.alertRose
+                        : ParcelGlassColors.amberSignal,
               ),
-              const SizedBox(height: 18),
-
-              // Host Input Field
-              const Text(
-                'BACKEND HOST & PORT',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.1,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _hostController,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'e.g. 192.168.0.101:4300',
-                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
-                  filled: true,
-                  fillColor: Colors.black.withValues(alpha: 0.4),
-                  prefixIcon: const Icon(Icons.dns, color: Colors.white54, size: 18),
-                  suffixIcon: IconButton(
-                    icon: _testing
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: ParcelGlassColors.mintSignal,
-                            ),
-                          )
-                        : const Icon(Icons.refresh, color: ParcelGlassColors.mintSignal),
-                    onPressed: _testing ? null : () => _testConnection(),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: ParcelGlassColors.mintSignal),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-              // Quick Presets
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: [
-                  _presetChip('192.168.0.101:4300', 'Laptop Wi-Fi'),
-                  _presetChip('10.0.2.2:4300', 'Android Emulator'),
-                  _presetChip('localhost:4300', 'Localhost'),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              // Status Banner
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: _isHealthy == true
-                      ? ParcelGlassColors.alertEmerald.withValues(alpha: 0.15)
-                      : _isHealthy == false
-                          ? ParcelGlassColors.alertRose.withValues(alpha: 0.15)
-                          : ParcelGlassColors.amberSignal.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _statusMessage,
+                  style: TextStyle(
                     color: _isHealthy == true
-                        ? ParcelGlassColors.alertEmerald.withValues(alpha: 0.4)
+                        ? ParcelGlassColors.mintSignal
                         : _isHealthy == false
-                            ? ParcelGlassColors.alertRose.withValues(alpha: 0.4)
-                            : ParcelGlassColors.amberSignal.withValues(alpha: 0.3),
+                            ? ParcelGlassColors.alertRose
+                            : ParcelGlassColors.slateSubtitle,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _isHealthy == true
-                          ? Icons.check_circle
-                          : _isHealthy == false
-                              ? Icons.error
-                              : Icons.sync,
-                      size: 18,
-                      color: _isHealthy == true
-                          ? ParcelGlassColors.alertEmerald
-                          : _isHealthy == false
-                              ? ParcelGlassColors.alertRose
-                              : ParcelGlassColors.amberSignal,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        _statusMessage,
-                        style: TextStyle(
-                          color: _isHealthy == true
-                              ? ParcelGlassColors.alertEmerald
-                              : _isHealthy == false
-                                  ? ParcelGlassColors.alertRose
-                                  : Colors.white70,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Actions
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.white70,
-                        side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancel'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: ParcelGlassColors.mintSignal,
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      onPressed: _saveAndApply,
-                      child: const Text(
-                        'Apply Server',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ],
           ),
         ),
-      ),
+
+        const SizedBox(height: 18),
+
+        // Action Buttons
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 44,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: ParcelGlassColors.slateSubtitle,
+                    side: BorderSide(color: Colors.white.withValues(alpha: 0.80), width: 1.2),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: SizedBox(
+                height: 44,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ParcelGlassColors.navyTitle,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    elevation: 0,
+                  ),
+                  onPressed: _saveAndApply,
+                  child: const Text(
+                    'Apply Server',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -312,24 +293,25 @@ class _NetworkHostDialogState extends State<NetworkHostDialog> {
         _testConnection(host);
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: isSelected
-              ? ParcelGlassColors.mintSignal.withValues(alpha: 0.2)
-              : Colors.white.withValues(alpha: 0.08),
+              ? ParcelGlassColors.accentBlue.withValues(alpha: 0.15)
+              : Colors.white.withValues(alpha: 0.40),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected
-                ? ParcelGlassColors.mintSignal
-                : Colors.white.withValues(alpha: 0.12),
+                ? ParcelGlassColors.accentBlue
+                : Colors.white.withValues(alpha: 0.70),
+            width: 1.2,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? ParcelGlassColors.mintSignal : Colors.white70,
+            color: isSelected ? ParcelGlassColors.accentBlue : ParcelGlassColors.slateSubtitle,
             fontSize: 11,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),

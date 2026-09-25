@@ -175,3 +175,46 @@ export async function getDeviceLogs(request: FastifyRequest, reply: FastifyReply
 
   return reply.send({ logs });
 }
+
+// 5. Update Device / Box Name
+export async function updateDeviceName(request: FastifyRequest, reply: FastifyReply) {
+  const { id } = request.params as { id: string };
+  const user = request.user as { id: string };
+  const { name } = (request.body as { name?: string }) || {};
+
+  if (!name || !name.trim()) {
+    return reply.status(400).send({ error: "Device name is required" });
+  }
+
+  let device = null;
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    device = await Device.findById(id);
+  }
+  if (!device) {
+    device = await Device.findOne({ deviceId: id.toUpperCase() });
+  }
+
+  if (!device) {
+    return reply.status(404).send({ error: "Device not found" });
+  }
+
+  if (!isAuthorizedUser(device, user.id)) {
+    return reply.status(403).send({ error: "Not authorized to rename this device" });
+  }
+
+  device.name = name.trim();
+  await device.save();
+
+  return reply.send({
+    success: true,
+    message: "Device renamed successfully",
+    device: {
+      id: device._id,
+      deviceId: device.deviceId,
+      name: device.name,
+      online: device.online,
+      doorState: device.doorState,
+    },
+  });
+}
+

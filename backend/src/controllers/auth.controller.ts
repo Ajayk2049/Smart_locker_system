@@ -367,3 +367,64 @@ export async function placeOrder(request: FastifyRequest, reply: FastifyReply) {
     },
   });
 }
+
+// 7. Update User Profile (Name, Email)
+export async function updateProfile(request: FastifyRequest, reply: FastifyReply) {
+  const authUser = request.user as { id: string };
+  if (!authUser?.id) {
+    return reply.status(401).send({ error: "Unauthorized" });
+  }
+
+  const { name, email } = (request.body as { name?: string; email?: string }) || {};
+
+  const user = await User.findById(authUser.id);
+  if (!user) {
+    return reply.status(404).send({ error: "User not found" });
+  }
+
+  if (name !== undefined) {
+    const cleanName = name.trim();
+    if (!cleanName) {
+      return reply.status(400).send({ error: "Name cannot be empty" });
+    }
+    user.name = cleanName;
+  }
+
+  if (email !== undefined) {
+    const cleanEmail = email.trim().toLowerCase();
+    if (cleanEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanEmail)) {
+        return reply.status(400).send({ error: "Please enter a valid email address" });
+      }
+      // Check if email taken by another user
+      const existing = await User.findOne({ email: cleanEmail, _id: { $ne: user._id } });
+      if (existing) {
+        return reply.status(409).send({ error: "This email address is already in use" });
+      }
+      user.email = cleanEmail;
+    } else {
+      user.email = undefined;
+    }
+  }
+
+  await user.save();
+
+  return reply.send({
+    success: true,
+    message: "Profile updated successfully",
+    user: {
+      id: user._id,
+      phone: user.phone,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      address: user.address,
+      pincode: user.pincode,
+      units: user.units,
+      orderStatus: user.orderStatus,
+      assignedDevices: user.assignedDevices || [],
+    },
+  });
+}
+

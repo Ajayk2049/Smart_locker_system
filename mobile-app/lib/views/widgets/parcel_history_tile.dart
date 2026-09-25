@@ -12,9 +12,8 @@ class ParcelHistoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryTextColor = isDark ? Colors.white : ParcelGlassColors.navyTitle;
-    final secondaryTextColor = isDark ? Colors.white70 : ParcelGlassColors.slateSubtitle;
+    final primaryTextColor = ParcelGlassColors.textPrimary(context);
+    final secondaryTextColor = ParcelGlassColors.textSecondary(context);
 
     final actionLower = log.action.toLowerCase();
     final isUnlock = actionLower.contains('unlock');
@@ -77,19 +76,15 @@ class ParcelHistoryTile extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         decoration: BoxDecoration(
-          color: isDark
-              ? const Color(0xFF241A13).withValues(alpha: 0.65)
-              : Colors.white.withValues(alpha: 0.45),
+          color: Colors.white.withValues(alpha: 0.45),
           borderRadius: BorderRadius.circular(22),
           border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.15)
-                : Colors.white.withValues(alpha: 0.65),
+            color: Colors.white.withValues(alpha: 0.65),
             width: 1.2,
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF3D2310).withValues(alpha: isDark ? 0.25 : 0.08),
+              color: const Color(0xFF3D2310).withValues(alpha: 0.08),
               blurRadius: 14,
               offset: const Offset(0, 4),
             ),
@@ -151,14 +146,10 @@ class ParcelHistoryTile extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.1)
-                    : Colors.white.withValues(alpha: 0.5),
+                color: Colors.white.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.2)
-                      : Colors.white.withValues(alpha: 0.7),
+                  color: Colors.white.withValues(alpha: 0.7),
                 ),
               ),
               child: Text(

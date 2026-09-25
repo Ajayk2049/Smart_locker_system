@@ -157,6 +157,28 @@ class AuthViewModel extends ChangeNotifier {
     }
   }
 
+  Future<bool> updateProfile({String? name, String? email}) async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final response = await _api.updateProfile(name: name, email: email);
+      if (response['user'] != null) {
+        await _storage.saveUserData(jsonEncode(response['user']));
+        _user = UserModel.fromJson(response['user']);
+      }
+      _loading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString().replaceAll('Exception: ', '').trim();
+      _loading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<void> logout() async {
     await _storage.deleteToken();
     _user = null;
@@ -168,3 +190,4 @@ class AuthViewModel extends ChangeNotifier {
     notifyListeners();
   }
 }
+

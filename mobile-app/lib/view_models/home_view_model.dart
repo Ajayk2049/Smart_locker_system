@@ -222,10 +222,34 @@ class HomeViewModel extends ChangeNotifier {
     }
   }
 
+  Future<void> renameDevice(String deviceId, String newName) async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      await _api.updateDeviceName(deviceId, newName);
+      // Immediately update local device state in list
+      final index = _devices.indexWhere((d) => d.id == deviceId || d.deviceId == deviceId);
+      if (index != -1) {
+        _devices[index] = _devices[index].copyWith(name: newName);
+      }
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+
   void clearError() {
     _error = null;
     notifyListeners();
   }
+
 
   @override
   void dispose() {

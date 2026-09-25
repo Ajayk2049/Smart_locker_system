@@ -5,7 +5,9 @@ import {
   createDevice,
   unlockDevice,
   getDeviceLogs,
+  updateDeviceName,
 } from "../controllers/device.controller.js";
+
 import {
   testUnlockDevice,
   getDeviceCommand,
@@ -15,11 +17,15 @@ import {
 import {
   addCoOwner,
   removeCoOwner,
+  renameCoOwner,
   getDeviceSlots,
+  requestSlotUpgrade,
   createInviteCode,
   cancelInviteCode,
   joinDevice,
 } from "../controllers/deviceSlot.controller.js";
+
+
 
 export default async function deviceRoutes(fastify: FastifyInstance) {
   // 1. Diagnostic endpoint for hardware bench testing
@@ -61,6 +67,11 @@ export default async function deviceRoutes(fastify: FastifyInstance) {
       handler: getDeviceLogs,
     });
 
+    authScope.patch("/devices/:id/name", {
+      handler: updateDeviceName,
+    });
+
+
     // Multi-user slot & invite management
     authScope.post("/devices/:id/co-owners", {
       handler: addCoOwner,
@@ -70,9 +81,18 @@ export default async function deviceRoutes(fastify: FastifyInstance) {
       handler: removeCoOwner,
     });
 
+    authScope.patch("/devices/:id/co-owners/:userId", {
+      handler: renameCoOwner,
+    });
+
     authScope.get("/devices/:id/slots", {
       handler: getDeviceSlots,
     });
+
+    authScope.post("/devices/:id/slots/upgrade", {
+      handler: requestSlotUpgrade,
+    });
+
 
     // Join Code system
     authScope.post("/devices/:id/invite", {

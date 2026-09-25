@@ -4,6 +4,7 @@ export interface IDevice extends Document {
   deviceId: string;
   ownerId: mongoose.Types.ObjectId;
   coOwners: mongoose.Types.ObjectId[];
+  coOwnerNicknames?: Map<string, string>;
   allowedSlots: number;
   name: string;
   doorState: "open" | "closed";
@@ -35,12 +36,18 @@ const deviceSchema = new Schema<IDevice>(
         ref: "User",
       },
     ],
+    coOwnerNicknames: {
+      type: Map,
+      of: String,
+      default: {},
+    },
     allowedSlots: {
       type: Number,
       default: 2,
       min: 2,
       max: 5,
     },
+
     name: {
       type: String,
       required: true,
