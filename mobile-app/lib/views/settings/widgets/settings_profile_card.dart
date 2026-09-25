@@ -16,6 +16,7 @@ class SettingsProfileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LiquidParcelCard(
+      useStaticGlass: true,
       borderRadius: 22,
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(16),

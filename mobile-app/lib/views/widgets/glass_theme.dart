@@ -41,6 +41,9 @@ class LiquidParcelCard extends StatelessWidget {
   final double borderWidth;
   final double blur;
   final bool isDestructive;
+  /// When true, renders an ultra-smooth native GPU cached glass decoration (like ParcelHistoryTile)
+  /// maintaining flawless 120Hz scrolling framerates without shader lens overhead in long lists.
+  final bool useStaticGlass;
 
   const LiquidParcelCard({
     super.key,
@@ -54,6 +57,7 @@ class LiquidParcelCard extends StatelessWidget {
     this.borderWidth = 1.2,
     this.blur = 8.0,
     this.isDestructive = false,
+    this.useStaticGlass = false,
   });
 
   @override
@@ -62,6 +66,43 @@ class LiquidParcelCard extends StatelessWidget {
         (isDestructive
             ? const Color(0x38FEE2E2)
             : Colors.white.withValues(alpha: 0.45));
+
+    final effectiveBorderColor =
+        borderColor ?? (isDestructive ? Colors.redAccent.withValues(alpha: 0.35) : Colors.white.withValues(alpha: 0.65));
+
+    if (useStaticGlass) {
+      final staticCard = RepaintBoundary(
+        child: Container(
+          margin: margin ?? const EdgeInsets.only(bottom: 12),
+          padding: padding,
+          decoration: BoxDecoration(
+            color: effectiveColor,
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: Border.all(
+              color: effectiveBorderColor,
+              width: borderWidth,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF3D2310).withValues(alpha: 0.08),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: child,
+        ),
+      );
+
+      if (onTap != null) {
+        return GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: staticCard,
+        );
+      }
+      return staticCard;
+    }
 
     final Widget card = Container(
       margin: margin ?? const EdgeInsets.only(bottom: 12),
@@ -73,7 +114,7 @@ class LiquidParcelCard extends StatelessWidget {
           shape: LiquidGlassShape.continuousRoundedRectangle(
             cornerRadius: borderRadius,
             borderWidth: borderWidth,
-            borderColor: borderColor ?? Colors.white.withValues(alpha: 0.65),
+            borderColor: effectiveBorderColor,
           ),
           appearance: LiquidGlassAppearance(
             color: effectiveColor,

@@ -45,6 +45,7 @@ class HomeHistoryTab extends StatelessWidget {
                 )
               else if (home.logs.isEmpty)
                 LiquidParcelCard(
+                  useStaticGlass: true,
                   borderRadius: 22,
                   margin: const EdgeInsets.only(bottom: 10),
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),

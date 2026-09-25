@@ -12,6 +12,7 @@ class SettingsSignOutButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LiquidParcelCard(
+      useStaticGlass: true,
       isDestructive: true,
       borderRadius: 22,
       margin: const EdgeInsets.only(bottom: 24),

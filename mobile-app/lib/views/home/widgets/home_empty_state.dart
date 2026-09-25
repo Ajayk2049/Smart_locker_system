@@ -26,6 +26,7 @@ class HomeEmptyState extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 550),
         child: LiquidParcelCard(
+          useStaticGlass: true,
           borderRadius: 24,
           padding: const EdgeInsets.all(28),
           child: Column(

@@ -23,6 +23,7 @@ class LockerHeroCard extends StatelessWidget {
     final isDoorOpen = device.doorState.toLowerCase() == 'open';
 
     return LiquidParcelCard(
+      useStaticGlass: true,
       borderRadius: 26,
       padding: const EdgeInsets.all(20),
       child: Column(

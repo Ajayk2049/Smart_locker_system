@@ -18,6 +18,7 @@ class SettingCapsuleTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LiquidParcelCard(
+      useStaticGlass: true,
       onTap: onTap,
       borderRadius: 22,
       margin: const EdgeInsets.only(bottom: 10),
