@@ -5,6 +5,8 @@ export interface ILog extends Document {
   action:
     | "unlock"
     | "lock"
+    | "emergency_unlock"
+    | "manual_unlock"
     | "door_open"
     | "door_close"
     | "delivery_success"

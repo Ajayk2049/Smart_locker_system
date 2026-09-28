@@ -45,6 +45,29 @@ export async function testUnlockDevice(request: FastifyRequest, reply: FastifyRe
   });
 }
 
+function isDeviceAuthorized(device: any, request: FastifyRequest): boolean {
+  // If device has no deviceKey set (legacy/unconfigured), permit in dev mode
+  if (!device.deviceKey) {
+    return true;
+  }
+
+  const query = request.query as { deviceKey?: string };
+  const body = (request.body as { deviceKey?: string }) || {};
+  const providedKey =
+    (request.headers["x-device-key"] as string | undefined) ||
+    query.deviceKey ||
+    body.deviceKey;
+
+  if (!providedKey) return false;
+
+  // Allow simulator test key in non-production environments
+  if (process.env.NODE_ENV !== "production" && providedKey === "SIMULATOR_TEST_KEY") {
+    return true;
+  }
+
+  return providedKey === device.deviceKey;
+}
+
 // 2. Short-polling: GET /api/device/command?deviceId=BOX_001
 export async function getDeviceCommand(request: FastifyRequest, reply: FastifyReply) {
   const query = request.query as { deviceId?: string };
@@ -60,22 +83,33 @@ export async function getDeviceCommand(request: FastifyRequest, reply: FastifyRe
     return reply.status(404).send({ error: `Device '${targetId}' not registered` });
   }
 
+  if (!isDeviceAuthorized(device, request)) {
+    return reply.status(401).send({ error: "Unauthorized: Invalid or missing X-Device-Key" });
+  }
+
   const wasOffline = !device.online;
   device.online = true;
   device.lastHeartbeat = new Date();
   await device.save();
 
   if (wasOffline) {
-    wsService.broadcastToDevice(targetId, {
+    const statusMsg = {
       type: "DEVICE_STATUS",
       deviceId: targetId,
       doorState: device.doorState,
       online: true,
-    });
-    wsService.broadcastToDevice(targetId, {
+    };
+    wsService.broadcastToDevice(targetId, statusMsg);
+    wsService.broadcastToDevice(device._id.toString(), statusMsg);
+    if (device.ownerId) wsService.broadcastToDevice(device.ownerId.toString(), statusMsg);
+
+    const onlineMsg = {
       type: "DEVICE_ONLINE",
       deviceId: targetId,
-    });
+    };
+    wsService.broadcastToDevice(targetId, onlineMsg);
+    wsService.broadcastToDevice(device._id.toString(), onlineMsg);
+    if (device.ownerId) wsService.broadcastToDevice(device.ownerId.toString(), onlineMsg);
   }
 
   const pending = commandQueueService.popPendingCommand(targetId);
@@ -110,6 +144,10 @@ export async function receiveTelemetry(request: FastifyRequest, reply: FastifyRe
     return reply.status(404).send({ error: `Device '${targetId}' not registered` });
   }
 
+  if (!isDeviceAuthorized(device, request)) {
+    return reply.status(401).send({ error: "Unauthorized: Invalid or missing X-Device-Key" });
+  }
+
   device.doorState = doorState as "open" | "closed";
   device.online = true;
   device.lastHeartbeat = new Date();
@@ -124,7 +162,6 @@ export async function receiveTelemetry(request: FastifyRequest, reply: FastifyRe
   wsService.broadcastToDevice(targetId, statusMsg);
   wsService.broadcastToDevice(device._id.toString(), statusMsg);
   if (device.ownerId) wsService.broadcastToDevice(device.ownerId.toString(), statusMsg);
-  wsService.broadcastToAll(statusMsg);
 
   if (doorState === "closed") {
     await Log.create({
@@ -146,10 +183,41 @@ export async function receiveTelemetry(request: FastifyRequest, reply: FastifyRe
       online: true,
     };
     wsService.broadcastToDevice(targetId, deliveryMsg);
-    wsService.broadcastToAll(deliveryMsg);
+    wsService.broadcastToDevice(device._id.toString(), deliveryMsg);
+    if (device.ownerId) wsService.broadcastToDevice(device.ownerId.toString(), deliveryMsg);
   } else {
-    // Hardware door opened: notify WebSocket clients in real-time
-    // (We do not log a redundant 'door_open' entry so user unlock is the single source of truth)
+    // Hardware door opened: check if this was triggered by an authorized app command
+    const hasAuthorizedAppUnlock = commandQueueService.hasRecentUnlock(targetId);
+
+    if (hasAuthorizedAppUnlock) {
+      // Authorized app unlock already logged with user attribution; consume window
+      commandQueueService.consumeRecentUnlock(targetId);
+    } else {
+      // Manual / Emergency unlock detected (key, lever, or state change during power restore)
+      await Log.create({
+        deviceId: device._id,
+        action: "emergency_unlock",
+        metadata: {
+          event: "emergency_manual_unlock",
+          source: "physical_sensor",
+          userName: "Emergency Key / Lever",
+          userRole: "Physical Access",
+          deviceId: device.deviceId,
+          detection: "hardware_feedback_trip",
+        },
+      });
+
+      const emergencyMsg = {
+        type: "EMERGENCY_UNLOCK",
+        deviceId: targetId,
+        doorState: "open",
+        online: true,
+      };
+      wsService.broadcastToDevice(targetId, emergencyMsg);
+      wsService.broadcastToDevice(device._id.toString(), emergencyMsg);
+      if (device.ownerId) wsService.broadcastToDevice(device.ownerId.toString(), emergencyMsg);
+    }
+
     const openMsg = {
       type: "DOOR_OPEN",
       deviceId: targetId,
@@ -157,7 +225,8 @@ export async function receiveTelemetry(request: FastifyRequest, reply: FastifyRe
       online: true,
     };
     wsService.broadcastToDevice(targetId, openMsg);
-    wsService.broadcastToAll(openMsg);
+    wsService.broadcastToDevice(device._id.toString(), openMsg);
+    if (device.ownerId) wsService.broadcastToDevice(device.ownerId.toString(), openMsg);
   }
 
   return reply.send({ success: true, doorState, online: true });
@@ -178,6 +247,10 @@ export async function receiveHeartbeat(request: FastifyRequest, reply: FastifyRe
     return reply.status(404).send({ error: `Device '${targetId}' not registered` });
   }
 
+  if (!isDeviceAuthorized(device, request)) {
+    return reply.status(401).send({ error: "Unauthorized: Invalid or missing X-Device-Key" });
+  }
+
   device.online = true;
   device.lastHeartbeat = new Date();
   await device.save();
@@ -191,7 +264,6 @@ export async function receiveHeartbeat(request: FastifyRequest, reply: FastifyRe
   wsService.broadcastToDevice(targetId, heartbeatMsg);
   wsService.broadcastToDevice(device._id.toString(), heartbeatMsg);
   if (device.ownerId) wsService.broadcastToDevice(device.ownerId.toString(), heartbeatMsg);
-  wsService.broadcastToAll(heartbeatMsg);
 
   return reply.send({ success: true, online: true, timestamp: device.lastHeartbeat });
 }
@@ -218,7 +290,6 @@ export async function checkDeviceWatchdog() {
       wsService.broadcastToDevice(dev.deviceId, offlineMsg);
       wsService.broadcastToDevice(dev._id.toString(), offlineMsg);
       if (dev.ownerId) wsService.broadcastToDevice(dev.ownerId.toString(), offlineMsg);
-      wsService.broadcastToAll(offlineMsg);
     }
   } catch (err) {
     console.error("Error in device watchdog:", err);

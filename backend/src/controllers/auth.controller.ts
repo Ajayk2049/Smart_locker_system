@@ -1,5 +1,6 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import crypto from "crypto";
+import bcrypt from "bcrypt";
 import { User } from "../models/User.model.js";
 import { Otp } from "../models/Otp.model.js";
 import { LockerRequest } from "../models/LockerRequest.model.js";
@@ -148,10 +149,12 @@ export async function registerWithOtp(request: FastifyRequest, reply: FastifyRep
 
   const isPlacingOrder = Boolean(address && address.trim());
 
+  const hashedPassword = await bcrypt.hash(password, 10);
+
   const userData: any = {
     phone: cleanPhone,
     name: name ? name.trim() : undefined,
-    password,
+    password: hashedPassword,
     role: "user",
     isPhoneVerified: true,
     isDemo: cleanPhone === "9876543210",
@@ -239,8 +242,26 @@ export async function login(request: FastifyRequest, reply: FastifyReply) {
   queryConditions.push({ email: idString.toLowerCase() });
 
   const user = await User.findOne({ $or: queryConditions });
+  if (!user) {
+    return reply.status(401).send({ error: "Invalid mobile number/email or password" });
+  }
 
-  if (!user || user.password !== password) {
+  let isMatch = false;
+  // Check if password in DB is a bcrypt hash
+  const isBcrypt = user.password.startsWith("$2a$") || user.password.startsWith("$2b$");
+  if (isBcrypt) {
+    isMatch = await bcrypt.compare(password, user.password);
+  } else {
+    // Legacy plain text check
+    isMatch = user.password === password;
+    if (isMatch) {
+      // Seamlessly upgrade legacy plain text password to bcrypt hash
+      user.password = await bcrypt.hash(password, 10);
+      await user.save();
+    }
+  }
+
+  if (!isMatch) {
     return reply.status(401).send({ error: "Invalid mobile number/email or password" });
   }
 

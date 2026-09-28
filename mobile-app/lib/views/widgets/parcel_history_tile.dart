@@ -16,39 +16,46 @@ class ParcelHistoryTile extends StatelessWidget {
     final secondaryTextColor = ParcelGlassColors.textSecondary(context);
 
     final actionLower = log.action.toLowerCase();
-    final isUnlock = actionLower.contains('unlock');
-    final isLock = actionLower.contains('lock') && !isUnlock;
+    final isEmergencyUnlock = actionLower.contains('emergency') || actionLower.contains('manual');
+    final isUnlock = actionLower.contains('unlock') && !isEmergencyUnlock;
+    final isLock = actionLower.contains('lock') && !isUnlock && !isEmergencyUnlock;
     final isDoorOpen = actionLower == 'door_open';
     final isDelivery = actionLower.contains('delivery');
     final isCoOwnerAdded = actionLower.contains('co_owner_added');
     final isCoOwnerRemoved = actionLower.contains('co_owner_removed');
 
-    final IconData icon = isUnlock
-        ? Icons.lock_open_rounded
-        : (isLock
-            ? Icons.lock_rounded
-            : (isDelivery
-                ? Icons.inventory_2_outlined
-                : (isCoOwnerAdded
-                    ? Icons.person_add_rounded
-                    : (isCoOwnerRemoved
-                        ? Icons.person_remove_rounded
-                        : (isDoorOpen ? Icons.sensor_door_outlined : Icons.history_rounded)))));
+    final IconData icon = isEmergencyUnlock
+        ? Icons.vpn_key_rounded
+        : (isUnlock
+            ? Icons.lock_open_rounded
+            : (isLock
+                ? Icons.lock_rounded
+                : (isDelivery
+                    ? Icons.inventory_2_outlined
+                    : (isCoOwnerAdded
+                        ? Icons.person_add_rounded
+                        : (isCoOwnerRemoved
+                            ? Icons.person_remove_rounded
+                            : (isDoorOpen ? Icons.sensor_door_outlined : Icons.history_rounded))))));
 
-    final Color iconColor = isUnlock
-        ? ParcelGlassColors.mintSignal
-        : (isLock
-            ? ParcelGlassColors.accentBlue
-            : (isDelivery
-                ? const Color(0xFF6366F1)
-                : (isCoOwnerAdded
-                    ? ParcelGlassColors.accentBlue
-                    : (isCoOwnerRemoved
-                        ? Colors.redAccent
-                        : (isDoorOpen ? ParcelGlassColors.amberSignal : ParcelGlassColors.slateSubtitle)))));
+    final Color iconColor = isEmergencyUnlock
+        ? const Color(0xFFD97706) // Warm amber warning
+        : (isUnlock
+            ? ParcelGlassColors.mintSignal
+            : (isLock
+                ? ParcelGlassColors.accentBlue
+                : (isDelivery
+                    ? const Color(0xFF6366F1)
+                    : (isCoOwnerAdded
+                        ? ParcelGlassColors.accentBlue
+                        : (isCoOwnerRemoved
+                            ? Colors.redAccent
+                            : (isDoorOpen ? ParcelGlassColors.amberSignal : ParcelGlassColors.slateSubtitle))))));
 
     String title;
-    if (isUnlock) {
+    if (isEmergencyUnlock) {
+      title = 'Manual / Emergency Unlock';
+    } else if (isUnlock) {
       title = 'Locker Unlocked';
     } else if (isLock) {
       title = 'Locker Locked & Secured';

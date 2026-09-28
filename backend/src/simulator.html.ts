@@ -537,7 +537,9 @@ export const simulatorHtml = `<!DOCTYPE html>
       if (!isPowered) return;
       const id = getDeviceId();
       try {
-        const res = await fetch(\`\${API_BASE}/device/command?deviceId=\${id}\`);
+        const res = await fetch(\`\${API_BASE}/device/command?deviceId=\${id}\`, {
+          headers: { "X-Device-Key": "SIMULATOR_TEST_KEY" }
+        });
         if (!res.ok) return;
         const data = await res.json();
 
@@ -618,7 +620,10 @@ export const simulatorHtml = `<!DOCTYPE html>
       try {
         const res = await fetch(\`\${API_BASE}/device/telemetry\`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "X-Device-Key": "SIMULATOR_TEST_KEY"
+          },
           body: JSON.stringify({ deviceId: id, doorState: state })
         });
         const data = await res.json();
@@ -635,7 +640,10 @@ export const simulatorHtml = `<!DOCTYPE html>
       try {
         const res = await fetch(\`\${API_BASE}/device/heartbeat\`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "X-Device-Key": "SIMULATOR_TEST_KEY"
+          },
           body: JSON.stringify({ deviceId: id })
         });
         if (res.ok) {
