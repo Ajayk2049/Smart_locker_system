@@ -17,29 +17,33 @@ class SecureStorage {
     await _storage.delete(key: 'auth_token');
   }
 
+  Future<void> saveRefreshToken(String refreshToken) async {
+    await _storage.write(key: 'refresh_token', value: refreshToken);
+  }
+
+  Future<String?> getRefreshToken() async {
+    return await _storage.read(key: 'refresh_token');
+  }
+
+  Future<void> deleteRefreshToken() async {
+    await _storage.delete(key: 'refresh_token');
+  }
+
   Future<bool> hasToken() async {
     final token = await getToken();
     return token != null && token.isNotEmpty;
   }
 
-  Future<void> saveCredentials({required String identifier, String? password}) async {
+  Future<void> saveIdentifier(String identifier) async {
     await _storage.write(key: 'saved_identifier', value: identifier);
-    if (password != null && password.isNotEmpty) {
-      await _storage.write(key: 'saved_password', value: password);
-    }
   }
 
   Future<String?> getSavedIdentifier() async {
     return await _storage.read(key: 'saved_identifier');
   }
 
-  Future<String?> getSavedPassword() async {
-    return await _storage.read(key: 'saved_password');
-  }
-
-  Future<void> clearCredentials() async {
+  Future<void> clearSavedIdentifier() async {
     await _storage.delete(key: 'saved_identifier');
-    await _storage.delete(key: 'saved_password');
   }
 
   Future<void> saveUserData(String userJson) async {
@@ -48,5 +52,16 @@ class SecureStorage {
 
   Future<String?> getUserData() async {
     return await _storage.read(key: 'user_profile');
+  }
+
+  Future<void> deleteUserData() async {
+    await _storage.delete(key: 'user_profile');
+  }
+
+  /// Purges all session tokens, credentials, and cached profile data on logout
+  Future<void> purgeAllSessionData() async {
+    await deleteToken();
+    await deleteRefreshToken();
+    await deleteUserData();
   }
 }

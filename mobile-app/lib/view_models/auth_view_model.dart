@@ -13,14 +13,12 @@ class AuthViewModel extends ChangeNotifier {
   bool _initialized = false;
   String? _error;
   String? _savedIdentifier;
-  String? _savedPassword;
 
   UserModel? get user => _user;
   bool get loading => _loading;
   bool get initialized => _initialized;
   String? get error => _error;
   String? get savedIdentifier => _savedIdentifier;
-  String? get savedPassword => _savedPassword;
   bool get isAuthenticated => _user != null;
 
   Future<void> init() async {
@@ -29,7 +27,6 @@ class AuthViewModel extends ChangeNotifier {
 
     try {
       _savedIdentifier = await _storage.getSavedIdentifier();
-      _savedPassword = await _storage.getSavedPassword();
 
       final hasToken = await _storage.hasToken();
       if (hasToken) {
@@ -40,7 +37,7 @@ class AuthViewModel extends ChangeNotifier {
             await _storage.saveUserData(jsonEncode(res['user']));
           }
         } catch (_) {
-          // If network error, attempt to load cached offline user profile
+          // If offline, attempt to load cached profile from secure storage
           final cached = await _storage.getUserData();
           if (cached != null) {
             try {
@@ -48,22 +45,6 @@ class AuthViewModel extends ChangeNotifier {
             } catch (_) {}
           }
         }
-      }
-
-      // If still not authenticated but we have saved login credentials, attempt background login
-      if (_user == null &&
-          _savedIdentifier != null &&
-          _savedIdentifier!.isNotEmpty &&
-          _savedPassword != null &&
-          _savedPassword!.isNotEmpty) {
-        try {
-          final res = await _api.login(_savedIdentifier!, _savedPassword!);
-          if (res['token'] != null) {
-            await _storage.saveToken(res['token']);
-            _user = UserModel.fromJson(res['user']);
-            await _storage.saveUserData(jsonEncode(res['user']));
-          }
-        } catch (_) {}
       }
     } catch (_) {}
 
@@ -112,9 +93,11 @@ class AuthViewModel extends ChangeNotifier {
         inviteCode: inviteCode,
       );
       await _storage.saveToken(response['token']);
-      await _storage.saveCredentials(identifier: phone, password: password);
+      if (response['refreshToken'] != null) {
+        await _storage.saveRefreshToken(response['refreshToken']);
+      }
+      await _storage.saveIdentifier(phone);
       _savedIdentifier = phone;
-      _savedPassword = password;
       if (response['user'] != null) {
         await _storage.saveUserData(jsonEncode(response['user']));
         _user = UserModel.fromJson(response['user']);
@@ -139,9 +122,11 @@ class AuthViewModel extends ChangeNotifier {
     try {
       final response = await _api.login(identifier, password);
       await _storage.saveToken(response['token']);
-      await _storage.saveCredentials(identifier: identifier, password: password);
+      if (response['refreshToken'] != null) {
+        await _storage.saveRefreshToken(response['refreshToken']);
+      }
+      await _storage.saveIdentifier(identifier);
       _savedIdentifier = identifier;
-      _savedPassword = password;
       if (response['user'] != null) {
         await _storage.saveUserData(jsonEncode(response['user']));
         _user = UserModel.fromJson(response['user']);
@@ -180,7 +165,8 @@ class AuthViewModel extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    await _storage.deleteToken();
+    await _api.logout();
+    await _storage.purgeAllSessionData();
     _user = null;
     notifyListeners();
   }

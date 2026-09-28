@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../view_models/auth_view_model.dart';
@@ -22,15 +23,41 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   bool _otpSent = false;
   String? _infoMessage;
+  int _cooldownSeconds = 0;
+  Timer? _cooldownTimer;
 
   @override
   void dispose() {
+    _cooldownTimer?.cancel();
     _phoneController.dispose();
     _otpController.dispose();
     _passwordController.dispose();
     _nameController.dispose();
     _inviteCodeController.dispose();
     super.dispose();
+  }
+
+  void _startCooldown([int seconds = 10]) {
+    _cooldownTimer?.cancel();
+    setState(() {
+      _cooldownSeconds = seconds;
+    });
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_cooldownSeconds <= 1) {
+        timer.cancel();
+        if (mounted) {
+          setState(() {
+            _cooldownSeconds = 0;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _cooldownSeconds--;
+          });
+        }
+      }
+    });
   }
 
   void _handleSendOtp(AuthViewModel auth) async {
@@ -73,6 +100,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     if (result['success'] == true) {
+      _startCooldown(10);
       setState(() {
         _otpSent = true;
         _infoMessage = result['message'] ?? 'OTP verification code sent!';
@@ -84,6 +112,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       );
     } else {
+      if (result['cooldownRemaining'] != null) {
+        final waitSec = int.tryParse(result['cooldownRemaining'].toString()) ?? 10;
+        _startCooldown(waitSec);
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result['error'] ?? 'Failed to send OTP'),
@@ -193,6 +225,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     RegisterPhoneOtpStep(
                       phoneController: _phoneController,
                       otpSent: _otpSent,
+                      cooldownSeconds: _cooldownSeconds,
                       auth: auth,
                       onSendOtp: () => _handleSendOtp(auth),
                     ),

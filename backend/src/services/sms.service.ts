@@ -50,9 +50,9 @@ export class SMSService {
       throw new Error("Invalid phone number format. Must be a 10-digit Indian mobile number.");
     }
 
-    // Demo mode bypass: standard test numbers
-    if (this.isDemoMode || cleanPhone === "9876543210") {
-      console.log(`🧪 [SMS Demo Mode] Bypassed StartMessaging API for ${this.maskPhone(cleanPhone)}. Test OTP: ${otp}`);
+    // Demo mode bypass: only when DEMO_MODE=true is explicitly configured in .env
+    if (this.isDemoMode) {
+      console.log(`🧪 [SMS Demo Mode] Simulated SMS dispatch for ${this.maskPhone(cleanPhone)}.`);
       return { success: true, messageId: "demo_msg_" + Date.now(), isDemo: true };
     }
 

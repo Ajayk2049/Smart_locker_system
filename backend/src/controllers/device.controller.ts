@@ -5,6 +5,7 @@ import { User } from "../models/User.model.js";
 import { Log } from "../models/Log.model.js";
 import { commandQueueService } from "../services/commandQueue.service.js";
 import { wsService } from "../services/websocket.service.js";
+import { generateDeviceKey } from "./adminRequests.controller.js";
 
 // Helper to verify user access (Primary Owner OR Co-Owner)
 export function isAuthorizedUser(device: any, userId: string): boolean {
@@ -69,6 +70,7 @@ export async function createDevice(request: FastifyRequest, reply: FastifyReply)
     doorState: "closed",
     online: false,
     lastHeartbeat: null,
+    deviceKey: generateDeviceKey(),
   });
 
   return reply.status(201).send({ device: newDevice, message: "Device successfully paired" });

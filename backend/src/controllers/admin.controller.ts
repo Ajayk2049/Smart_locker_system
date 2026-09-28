@@ -1,8 +1,10 @@
+import bcrypt from "bcrypt";
 import { FastifyRequest, FastifyReply } from "fastify";
 import { Device } from "../models/Device.model.js";
 import { User } from "../models/User.model.js";
 import { Log } from "../models/Log.model.js";
 import { smsService } from "../services/sms.service.js";
+import { generateDeviceKey } from "./adminRequests.controller.js";
 
 // 1. Create a customer manually from admin
 export async function createCustomer(request: FastifyRequest, reply: FastifyReply) {
@@ -17,15 +19,21 @@ export async function createCustomer(request: FastifyRequest, reply: FastifyRepl
     return reply.status(400).send({ error: "Phone number or email is required" });
   }
 
+  if (!password || password.trim().length < 6) {
+    return reply.status(400).send({ error: "Password is required and must be at least 6 characters long" });
+  }
+
   const cleanPhone = phone ? smsService.normalizePhone(phone) : undefined;
   if (cleanPhone) {
     const existing = await User.findOne({ phone: cleanPhone });
     if (existing) return reply.status(409).send({ error: "Customer with this phone already exists" });
   }
 
+  const hashedPassword = await bcrypt.hash(password.trim(), 10);
+
   const userData: any = {
     name: name?.trim() || "Customer",
-    password: password || "SecureBox@123",
+    password: hashedPassword,
     role: "user",
     isPhoneVerified: true,
   };
@@ -33,7 +41,10 @@ export async function createCustomer(request: FastifyRequest, reply: FastifyRepl
   if (email && email.trim()) userData.email = email.toLowerCase().trim();
 
   const user = await User.create(userData);
-  return reply.status(201).send({ success: true, user });
+  const userObj = user.toObject();
+  delete (userObj as any).password;
+
+  return reply.status(201).send({ success: true, user: userObj });
 }
 
 // 2. Get all devices with slot capacity calculations
@@ -160,6 +171,7 @@ export async function createDeviceForUser(request: FastifyRequest, reply: Fastif
     doorState: "closed",
     online: false,
     lastHeartbeat: null,
+    deviceKey: generateDeviceKey(),
   });
 
   return reply.status(201).send({
@@ -197,4 +209,35 @@ export async function getDeviceLogsForAdmin(request: FastifyRequest, reply: Fast
     .limit(100);
 
   return reply.send({ logs });
+}
+
+// 9. Rotate device hardware key from Admin Dashboard
+export async function rotateDeviceKey(request: FastifyRequest, reply: FastifyReply) {
+  const { id } = request.params as { id: string };
+
+  const device = await Device.findById(id);
+  if (!device) {
+    return reply.status(404).send({ error: "Device not found" });
+  }
+
+  const newKey = generateDeviceKey();
+  device.deviceKey = newKey;
+  await device.save();
+
+  await Log.create({
+    deviceId: device._id,
+    action: "unlock",
+    status: "success",
+    metadata: {
+      action: "admin_key_rotation",
+      rotatedBy: (request.user as { id: string })?.id,
+    },
+  });
+
+  return reply.send({
+    success: true,
+    message: `Hardware key for device ${device.deviceId} rotated successfully`,
+    deviceId: device.deviceId,
+    deviceKey: newKey,
+  });
 }

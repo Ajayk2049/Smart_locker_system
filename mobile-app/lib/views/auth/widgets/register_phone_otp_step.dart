@@ -5,6 +5,7 @@ import '../../widgets/glass_theme.dart';
 class RegisterPhoneOtpStep extends StatelessWidget {
   final TextEditingController phoneController;
   final bool otpSent;
+  final int cooldownSeconds;
   final AuthViewModel auth;
   final VoidCallback onSendOtp;
 
@@ -12,6 +13,7 @@ class RegisterPhoneOtpStep extends StatelessWidget {
     super.key,
     required this.phoneController,
     required this.otpSent,
+    this.cooldownSeconds = 0,
     required this.auth,
     required this.onSendOtp,
   });
@@ -83,9 +85,9 @@ class RegisterPhoneOtpStep extends StatelessWidget {
               child: SizedBox(
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: auth.loading || otpSent ? null : onSendOtp,
+                  onPressed: auth.loading || cooldownSeconds > 0 ? null : onSendOtp,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: otpSent
+                    backgroundColor: cooldownSeconds > 0
                         ? Colors.black12
                         : ParcelGlassColors.mintSignal,
                     foregroundColor: Colors.black,
@@ -95,7 +97,9 @@ class RegisterPhoneOtpStep extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    otpSent ? 'SENT ✓' : 'GET OTP',
+                    cooldownSeconds > 0
+                        ? '${cooldownSeconds}s'
+                        : (otpSent ? 'RESEND' : 'GET OTP'),
                     style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
                   ),
                 ),

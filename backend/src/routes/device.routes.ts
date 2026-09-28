@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
+import { adminMiddleware } from "../middlewares/admin.middleware.js";
 import {
   getDevices,
   createDevice,
@@ -29,8 +30,9 @@ import { getSlotPricing } from "../controllers/pricing.controller.js";
 
 
 export default async function deviceRoutes(fastify: FastifyInstance) {
-  // 1. Diagnostic endpoint for hardware bench testing
+  // 1. Diagnostic endpoint for hardware bench testing (Protected by Admin Auth)
   fastify.post("/test/unlock", {
+    onRequest: [adminMiddleware],
     handler: testUnlockDevice,
   });
 
@@ -66,6 +68,12 @@ export default async function deviceRoutes(fastify: FastifyInstance) {
     });
 
     authScope.post("/devices/:id/unlock", {
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: "1 minute",
+        },
+      },
       handler: unlockDevice,
     });
 
@@ -102,6 +110,12 @@ export default async function deviceRoutes(fastify: FastifyInstance) {
 
     // Join Code system
     authScope.post("/devices/:id/invite", {
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: "1 minute",
+        },
+      },
       handler: createInviteCode,
     });
 
@@ -110,6 +124,12 @@ export default async function deviceRoutes(fastify: FastifyInstance) {
     });
 
     authScope.post("/devices/join", {
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: "1 minute",
+        },
+      },
       handler: joinDevice,
     });
   });

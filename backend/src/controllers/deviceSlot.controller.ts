@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { FastifyRequest, FastifyReply } from "fastify";
 import mongoose from "mongoose";
 import { Device } from "../models/Device.model.js";
@@ -162,7 +163,12 @@ export async function createInviteCode(request: FastifyRequest, reply: FastifyRe
     });
   }
 
-  const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.randomBytes(6);
+  let randomSuffix = "";
+  for (let i = 0; i < 6; i++) {
+    randomSuffix += chars[bytes[i] % chars.length];
+  }
   const inviteCode = `SBX-${randomSuffix}`;
   const inviteExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 

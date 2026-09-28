@@ -10,6 +10,7 @@ import {
   createCustomer,
   getSystemLogs,
   getDeviceLogsForAdmin,
+  rotateDeviceKey,
 } from "../controllers/admin.controller.js";
 import {
   getAllRequests,
@@ -41,6 +42,10 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   fastify.patch("/admin/devices/:id/slots", {
     handler: updateDeviceSlots,
+  });
+
+  fastify.post("/admin/devices/:id/rotate-key", {
+    handler: rotateDeviceKey,
   });
 
   fastify.get("/admin/users", {

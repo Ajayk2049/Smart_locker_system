@@ -7,6 +7,7 @@ export interface IOtp extends Document {
   expiresAt: Date;
   attempts: number;
   verified: boolean;
+  requestTimestamps: Date[];
   createdAt: Date;
 }
 
@@ -38,6 +39,10 @@ const otpSchema = new Schema<IOtp>(
     verified: {
       type: Boolean,
       default: false,
+    },
+    requestTimestamps: {
+      type: [Date],
+      default: () => [new Date()],
     },
   },
   { timestamps: { createdAt: true, updatedAt: false } }

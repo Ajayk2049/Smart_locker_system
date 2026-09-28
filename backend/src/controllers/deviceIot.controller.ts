@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { FastifyRequest, FastifyReply } from "fastify";
 import { Device } from "../models/Device.model.js";
 import { Log } from "../models/Log.model.js";
@@ -46,26 +47,24 @@ export async function testUnlockDevice(request: FastifyRequest, reply: FastifyRe
 }
 
 function isDeviceAuthorized(device: any, request: FastifyRequest): boolean {
-  // If device has no deviceKey set (legacy/unconfigured), permit in dev mode
   if (!device.deviceKey) {
-    return true;
+    return false;
   }
 
-  const query = request.query as { deviceKey?: string };
-  const body = (request.body as { deviceKey?: string }) || {};
-  const providedKey =
-    (request.headers["x-device-key"] as string | undefined) ||
-    query.deviceKey ||
-    body.deviceKey;
-
-  if (!providedKey) return false;
-
-  // Allow simulator test key in non-production environments
-  if (process.env.NODE_ENV !== "production" && providedKey === "SIMULATOR_TEST_KEY") {
-    return true;
+  // Device key must strictly be passed in HTTP headers (never in URL query string or body)
+  const providedKey = request.headers["x-device-key"] as string | undefined;
+  if (!providedKey || typeof providedKey !== "string") {
+    return false;
   }
 
-  return providedKey === device.deviceKey;
+  const providedBuffer = Buffer.from(providedKey.trim());
+  const actualBuffer = Buffer.from(device.deviceKey.trim());
+
+  if (providedBuffer.length !== actualBuffer.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(providedBuffer, actualBuffer);
 }
 
 // 2. Short-polling: GET /api/device/command?deviceId=BOX_001

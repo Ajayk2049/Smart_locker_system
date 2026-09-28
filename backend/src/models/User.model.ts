@@ -13,6 +13,8 @@ export interface IUser extends Document {
   units?: number;
   orderStatus?: "pending" | "preparing" | "dispatched" | "delivered" | "approved" | "rejected";
   assignedDevices?: string[];
+  failedLoginAttempts?: number;
+  lockUntil?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -76,6 +78,13 @@ const userSchema = new Schema<IUser>(
         trim: true,
       },
     ],
+    failedLoginAttempts: {
+      type: Number,
+      default: 0,
+    },
+    lockUntil: {
+      type: Date,
+    },
   },
   { timestamps: true }
 );

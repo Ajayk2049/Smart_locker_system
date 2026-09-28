@@ -354,6 +354,8 @@ export const simulatorHtml = `<!DOCTYPE html>
     <div class="device-strip">
       <label>Device ID:</label>
       <input id="deviceIdInput" type="text" value="BOX_001" spellcheck="false" oninput="onDeviceIdInput()" onchange="onDeviceIdChange()" />
+      <label style="margin-left: 8px;">Key:</label>
+      <input id="deviceKeyInput" type="password" placeholder="Provisioned Key" spellcheck="false" style="width: 140px;" onchange="onDeviceKeyChange()" />
       <button id="powerBtn" class="btn-toggle-power" onclick="togglePower()">
         <span id="powerDot">●</span>
         <span id="powerText">Powered ON</span>
@@ -478,6 +480,17 @@ export const simulatorHtml = `<!DOCTYPE html>
           if (badgeEl) badgeEl.innerText = clean;
           document.title = "ESP32 Simulator (" + clean + ")";
         }
+        const paramKey = urlParams.get("deviceKey") || urlParams.get("key");
+        if (paramKey) {
+          const keyInputEl = document.getElementById("deviceKeyInput");
+          if (keyInputEl) keyInputEl.value = paramKey.trim();
+        } else {
+          const savedKey = localStorage.getItem("sim_key_" + (paramId || "BOX_001"));
+          if (savedKey) {
+            const keyInputEl = document.getElementById("deviceKeyInput");
+            if (keyInputEl) keyInputEl.value = savedKey;
+          }
+        }
       } catch (e) {}
     }
 
@@ -491,9 +504,21 @@ export const simulatorHtml = `<!DOCTYPE html>
     function onDeviceIdChange() {
       const id = getDeviceId();
       document.title = "ESP32 Simulator (" + id + ")";
+      const savedKey = localStorage.getItem("sim_key_" + id) || "";
+      const keyInputEl = document.getElementById("deviceKeyInput");
+      if (keyInputEl) keyInputEl.value = savedKey;
       log("DEVICE", \`Target hardware unit switched to: \${id}\`, "boot");
       sendTelemetry(doorState);
       sendHeartbeat();
+    }
+
+    function onDeviceKeyChange() {
+      const id = getDeviceId();
+      const key = getDeviceKey();
+      if (key) {
+        localStorage.setItem("sim_key_" + id, key);
+        log("DEVICE", \`Device key configured for \${id}\`, "boot");
+      }
     }
 
     function getDeviceId() {
@@ -502,6 +527,11 @@ export const simulatorHtml = `<!DOCTYPE html>
       const badgeEl = document.getElementById("doorDeviceBadge");
       if (badgeEl) badgeEl.innerText = val;
       return val;
+    }
+
+    function getDeviceKey() {
+      const keyInputEl = document.getElementById("deviceKeyInput");
+      return (keyInputEl ? keyInputEl.value : "").trim();
     }
 
     // 1. Initial boot sync
@@ -536,9 +566,10 @@ export const simulatorHtml = `<!DOCTYPE html>
     async function pollCommand() {
       if (!isPowered) return;
       const id = getDeviceId();
+      const key = getDeviceKey();
       try {
         const res = await fetch(\`\${API_BASE}/device/command?deviceId=\${id}\`, {
-          headers: { "X-Device-Key": "SIMULATOR_TEST_KEY" }
+          headers: { ...(key ? { "X-Device-Key": key } : {}) }
         });
         if (!res.ok) return;
         const data = await res.json();
@@ -617,12 +648,13 @@ export const simulatorHtml = `<!DOCTYPE html>
     async function sendTelemetry(state) {
       if (!isPowered) return;
       const id = getDeviceId();
+      const key = getDeviceKey();
       try {
         const res = await fetch(\`\${API_BASE}/device/telemetry\`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-Device-Key": "SIMULATOR_TEST_KEY"
+            ...(key ? { "X-Device-Key": key } : {})
           },
           body: JSON.stringify({ deviceId: id, doorState: state })
         });
@@ -637,12 +669,13 @@ export const simulatorHtml = `<!DOCTYPE html>
     async function sendHeartbeat() {
       if (!isPowered) return;
       const id = getDeviceId();
+      const key = getDeviceKey();
       try {
         const res = await fetch(\`\${API_BASE}/device/heartbeat\`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-Device-Key": "SIMULATOR_TEST_KEY"
+            ...(key ? { "X-Device-Key": key } : {})
           },
           body: JSON.stringify({ deviceId: id })
         });

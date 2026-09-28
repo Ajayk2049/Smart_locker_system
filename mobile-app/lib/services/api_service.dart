@@ -28,6 +28,52 @@ class ApiService {
         'Content-Type': 'application/json',
       },
     ));
+
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onError: (DioException error, ErrorInterceptorHandler handler) async {
+          if (error.response?.statusCode == 401 && !error.requestOptions.path.contains('/auth/refresh')) {
+            try {
+              final refreshToken = await _storage.getRefreshToken();
+              if (refreshToken != null && refreshToken.isNotEmpty) {
+                // Call /api/auth/refresh to rotate tokens
+                final refreshRes = await _client.post('/api/auth/refresh', data: {
+                  'refreshToken': refreshToken,
+                });
+
+                if (refreshRes.statusCode == 200 && refreshRes.data['token'] != null) {
+                  final newToken = refreshRes.data['token'];
+                  final newRefreshToken = refreshRes.data['refreshToken'];
+
+                  await _storage.saveToken(newToken);
+                  if (newRefreshToken != null) {
+                    await _storage.saveRefreshToken(newRefreshToken);
+                  }
+
+                  // Retry the original failed request with the new access token
+                  final opts = error.requestOptions;
+                  opts.headers['Authorization'] = 'Bearer $newToken';
+                  final cloneReq = await dio.request(
+                    opts.path,
+                    options: Options(
+                      method: opts.method,
+                      headers: opts.headers,
+                    ),
+                    data: opts.data,
+                    queryParameters: opts.queryParameters,
+                  );
+                  return handler.resolve(cloneReq);
+                }
+              }
+            } catch (_) {
+              // Token refresh failed or revoked, proceed with error
+            }
+          }
+          return handler.next(error);
+        },
+      ),
+    );
+
     return dio;
   }
 
@@ -133,6 +179,18 @@ class ApiService {
     } on DioException catch (e) {
       throw Exception(extractErrorMessage(e, 'Session expired. Please sign in again.'));
     }
+  }
+
+  // 3c. Logout (Revoke Refresh Token)
+  Future<void> logout() async {
+    try {
+      final refreshToken = await _storage.getRefreshToken();
+      if (refreshToken != null) {
+        await _client.post('/api/auth/logout', data: {
+          'refreshToken': refreshToken,
+        });
+      }
+    } catch (_) {}
   }
 
   // 4. Device Management

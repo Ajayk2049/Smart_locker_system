@@ -6,7 +6,7 @@ import { config } from "../config.js";
 export default fp(async (fastify: FastifyInstance) => {
   fastify.register(fjwt, {
     secret: config.jwtSecret,
-    sign: { expiresIn: "7d" },
+    sign: { expiresIn: config.jwtExpiresIn },
   });
 
   fastify.decorate("authenticate", async (request: any, reply: any) => {

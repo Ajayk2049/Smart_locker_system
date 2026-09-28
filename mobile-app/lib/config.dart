@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class AppConfig {
@@ -7,16 +8,16 @@ class AppConfig {
   static const String googleServerClientId =
       '994828674942-tejtf8ntc6md6dvv3uvq0j92js6c42tk.apps.googleusercontent.com';
 
-  static bool _isProd = false;
+  static bool _isProd = kReleaseMode;
   static String _activeHost = defaultLocalHost;
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
   static const String _hostStorageKey = 'smartbox_server_host';
 
-  static Future<void> init({bool isProd = false}) async {
-    _isProd = isProd;
+  static Future<void> init({bool? isProd}) async {
+    _isProd = isProd ?? kReleaseMode;
     if (!_isProd) {
       final savedHost = await _storage.read(key: _hostStorageKey);
-      if (savedHost != null && savedHost.trim().isNotEmpty) {
+      if (savedHost != null && _isValidDevHost(savedHost)) {
         _activeHost = savedHost.trim();
       } else {
         _activeHost = defaultLocalHost;
@@ -28,14 +29,31 @@ class AppConfig {
     _isProd = isProd;
   }
 
+  static bool get isProd => _isProd;
+
   static String get currentHost => _isProd ? prodHost : _activeHost;
 
-  static Future<void> updateHost(String newHost) async {
+  /// Validates that a host belongs to private LAN / loopback addresses for dev testing
+  static bool _isValidDevHost(String host) {
+    final clean = host.trim().replaceAll('http://', '').replaceAll('https://', '').replaceAll('/', '');
+    final hostOnly = clean.contains(':') ? clean.split(':').first : clean;
+    return hostOnly == 'localhost' ||
+        hostOnly == '127.0.0.1' ||
+        hostOnly == '10.0.2.2' ||
+        RegExp(r'^(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)$').hasMatch(hostOnly);
+  }
+
+  static Future<bool> updateHost(String newHost) async {
+    // Arbitrary host pivot is strictly prohibited in production mode
+    if (_isProd) return false;
+
     final clean = newHost.trim().replaceAll('http://', '').replaceAll('https://', '').replaceAll('/', '');
-    if (clean.isNotEmpty) {
+    if (_isValidDevHost(clean)) {
       _activeHost = clean;
       await _storage.write(key: _hostStorageKey, value: clean);
+      return true;
     }
+    return false;
   }
 
   static Future<void> resetToDefaultHost() async {

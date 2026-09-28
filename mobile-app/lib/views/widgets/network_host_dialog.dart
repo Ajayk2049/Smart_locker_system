@@ -64,13 +64,22 @@ class _NetworkHostDialogState extends State<NetworkHostDialog> {
   Future<void> _saveAndApply() async {
     final newHost = _hostController.text.trim();
     if (newHost.isNotEmpty) {
-      await AppConfig.updateHost(newHost);
+      final success = await AppConfig.updateHost(newHost);
+      if (!success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Host rejected: Only local LAN/loopback addresses (192.168.x, 10.x, localhost) are permitted in dev mode.'),
+            backgroundColor: ParcelGlassColors.alertRose,
+          ),
+        );
+        return;
+      }
     }
     if (mounted) {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Server set to: http://${AppConfig.currentHost}'),
+          content: Text('Server set to: ${AppConfig.baseUrl}'),
           backgroundColor: ParcelGlassColors.accentBlue,
         ),
       );

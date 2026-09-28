@@ -15,7 +15,7 @@ import 'views/widgets/glass_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await AppConfig.init(isProd: false);
+  await AppConfig.init();
   try {
     await LiquidGlassShaders.ensureLoaded();
   } catch (_) {}

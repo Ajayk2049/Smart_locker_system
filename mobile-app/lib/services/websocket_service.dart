@@ -3,12 +3,14 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../config.dart';
+import 'secure_storage.dart';
 
 class WebSocketService {
   static final WebSocketService _instance = WebSocketService._internal();
   factory WebSocketService() => _instance;
   WebSocketService._internal();
 
+  final SecureStorage _storage = SecureStorage();
   WebSocketChannel? _channel;
   final Set<String> _joinedRooms = {};
   final StreamController<Map<String, dynamic>> _controller =
@@ -16,9 +18,16 @@ class WebSocketService {
 
   Stream<Map<String, dynamic>> get stream => _controller.stream;
 
-  void connect() {
+  Future<void> connect() async {
     try {
-      _channel = WebSocketChannel.connect(Uri.parse(AppConfig.wsUrl));
+      final token = await _storage.getToken();
+      if (token == null || token.isEmpty) {
+        debugPrint('WebSocket: No auth token found. Skipping connection.');
+        return;
+      }
+
+      final uri = Uri.parse('${AppConfig.wsUrl}?token=$token');
+      _channel = WebSocketChannel.connect(uri);
 
       _channel!.stream.listen(
         (data) {

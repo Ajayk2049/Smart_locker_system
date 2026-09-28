@@ -8,7 +8,10 @@ import { loggerConfig, loggerStream, isSilentTerminalPath, logFilePath, pruneLog
 
 import jwtPlugin from "./plugins/jwt.plugin.js";
 import corsPlugin from "./plugins/cors.plugin.js";
+import helmetPlugin from "./plugins/helmet.plugin.js";
 import websocketPlugin from "./plugins/websocket.plugin.js";
+import rateLimitPlugin from "./plugins/rateLimit.plugin.js";
+import mongoSanitizePlugin from "./plugins/mongoSanitize.plugin.js";
 
 import authRoutes from "./routes/auth.routes.js";
 import deviceRoutes from "./routes/device.routes.js";
@@ -37,15 +40,51 @@ fastify.addHook("onResponse", async (request, reply) => {
   request.log.info(`${statusEmoji} ${request.method} ${request.url} ${status} (${ms}ms)`);
 });
 
+function redactSensitiveData(data: any): any {
+  if (!data || typeof data !== "object") return data;
+  if (Array.isArray(data)) return data.map(redactSensitiveData);
+
+  const sensitiveKeys = new Set([
+    "password",
+    "otp",
+    "token",
+    "refreshtoken",
+    "devicekey",
+    "secret",
+    "authorization",
+    "admin_initial_password",
+  ]);
+
+  const sanitized: Record<string, any> = {};
+  for (const [key, val] of Object.entries(data)) {
+    if (sensitiveKeys.has(key.toLowerCase())) {
+      sanitized[key] = "[REDACTED]";
+    } else if (val && typeof val === "object") {
+      sanitized[key] = redactSensitiveData(val);
+    } else {
+      sanitized[key] = val;
+    }
+  }
+  return sanitized;
+}
+
 fastify.addHook("onError", async (request, reply, error) => {
   request.log.error(
-    { err: error, url: request.url, method: request.method, body: request.body },
+    {
+      err: error,
+      url: request.url,
+      method: request.method,
+      body: redactSensitiveData(request.body),
+    },
     `❌ Error handling ${request.method} ${request.url}: ${error.message}`
   );
 });
 
 async function bootstrap() {
   await fastify.register(corsPlugin);
+  await fastify.register(helmetPlugin);
+  await fastify.register(rateLimitPlugin);
+  await fastify.register(mongoSanitizePlugin);
   await fastify.register(jwtPlugin);
   await fastify.register(websocketPlugin);
 
@@ -70,8 +109,22 @@ async function bootstrap() {
   fastify.get("/health", async () => ({ status: "ok", service: "smart-locker-backend" }));
   fastify.get("/api/health", async () => ({ status: "ok", service: "smart-locker-backend" }));
 
-  // Virtual ESP32 Hardware Simulator GUI
+  // Virtual ESP32 Hardware Simulator GUI (Protected: disabled in production unless admin authenticated)
   fastify.get("/simulator", async (request, reply) => {
+    if (process.env.NODE_ENV === "production") {
+      const token = (request.query as { token?: string })?.token;
+      if (!token) {
+        return reply.status(403).send({ error: "Simulator is disabled in production environments" });
+      }
+      try {
+        const decoded: any = fastify.jwt.verify(token);
+        if (decoded?.role !== "admin") {
+          return reply.status(403).send({ error: "Unauthorized access to hardware simulator" });
+        }
+      } catch {
+        return reply.status(401).send({ error: "Invalid admin token" });
+      }
+    }
     return reply.type("text/html").send(simulatorHtml);
   });
 
@@ -80,16 +133,32 @@ async function bootstrap() {
   await fastify.register(deviceRoutes, { prefix: "/api" });
   await fastify.register(adminRoutes, { prefix: "/api" });
 
-  fastify.get("/ws", { websocket: true }, (socket, request) => {
-    const clientId = Math.random().toString(36).substring(7);
-    const user = request.user as { id: string } | undefined;
-    wsService.addClient(clientId, socket, user?.id || "anonymous");
+  fastify.get("/ws", { websocket: true }, async (socket, request) => {
+    const query = request.query as { token?: string } | undefined;
+    const authHeader = request.headers.authorization;
+    const token = query?.token || (authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null);
 
-    socket.on("message", (message) => {
+    if (!token) {
+      socket.close(4401, "Authentication token required");
+      return;
+    }
+
+    let decodedUser: { id: string; role?: string };
+    try {
+      decodedUser = fastify.jwt.verify(token) as { id: string; role?: string };
+    } catch {
+      socket.close(4401, "Invalid or expired token");
+      return;
+    }
+
+    const clientId = Math.random().toString(36).substring(7);
+    wsService.addClient(clientId, socket, decodedUser.id, decodedUser.role || "user");
+
+    socket.on("message", async (message) => {
       try {
         const data = JSON.parse(message.toString());
         if (data.type === "JOIN_ROOM" && data.deviceId) {
-          wsService.joinRoom(clientId, data.deviceId);
+          await wsService.joinRoom(clientId, data.deviceId);
         }
       } catch (error) {
         fastify.log.error(error, "WS message parse error");

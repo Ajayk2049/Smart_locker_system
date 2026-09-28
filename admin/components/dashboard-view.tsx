@@ -66,7 +66,7 @@ export function DashboardView({
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4300/api";
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
 
   const showNotification = (msg: string, isError = false) => {
     if (isError) {

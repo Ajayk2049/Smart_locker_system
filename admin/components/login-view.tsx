@@ -20,7 +20,12 @@ export function LoginView({ onLoginSuccess, theme = "light", onToggleTheme }: Lo
     setError(null);
     setLoading(true);
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4300/api";
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (!apiUrl) {
+      setError("Configuration Error: NEXT_PUBLIC_API_URL must be defined in .env");
+      setLoading(false);
+      return;
+    }
 
     try {
       const res = await fetch(`${apiUrl}/auth/login`, {
@@ -45,6 +50,9 @@ export function LoginView({ onLoginSuccess, theme = "light", onToggleTheme }: Lo
       }
 
       localStorage.setItem("admin_token", data.token);
+      if (data.refreshToken) {
+        localStorage.setItem("admin_refresh_token", data.refreshToken);
+      }
       localStorage.setItem("admin_user", JSON.stringify(data.user));
 
       onLoginSuccess(data.user, data.token);
@@ -53,11 +61,6 @@ export function LoginView({ onLoginSuccess, theme = "light", onToggleTheme }: Lo
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickFill = () => {
-    setEmail("Aibotink.web@gmail.com");
-    setPassword("Aibotink@123");
   };
 
   return (
@@ -150,18 +153,6 @@ export function LoginView({ onLoginSuccess, theme = "light", onToggleTheme }: Lo
               )}
             </button>
           </form>
-
-          {/* Quick-fill link */}
-          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-sm">
-            <span className="text-slate-400 text-xs">Primary Admin</span>
-            <button
-              type="button"
-              onClick={handleQuickFill}
-              className="text-[#00F5A0] hover:underline font-bold text-xs cursor-pointer"
-            >
-              Autofill Credentials
-            </button>
-          </div>
         </div>
 
         <div className="flex items-center justify-center gap-2 text-slate-400 text-sm">

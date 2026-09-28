@@ -51,7 +51,7 @@ export function Profile({ mode }: ProfileProps = {}) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4300/api";
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
 
   const clearMessages = () => {
     setErrorMessage(null);
@@ -109,8 +109,8 @@ export function Profile({ mode }: ProfileProps = {}) {
     };
   }, []);
 
-  const startCooldown = () => {
-    setOtpCooldown(60);
+  const startCooldown = (seconds = 10) => {
+    setOtpCooldown(seconds);
     if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
     cooldownTimerRef.current = setInterval(() => {
       setOtpCooldown((prev) => {
@@ -141,6 +141,9 @@ export function Profile({ mode }: ProfileProps = {}) {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (data.cooldownRemaining) {
+          startCooldown(data.cooldownRemaining);
+        }
         if (data.exists) {
           setErrorMessage(data.error || "Account already exists. Please log in.");
           setIsRegister(false);
@@ -150,7 +153,7 @@ export function Profile({ mode }: ProfileProps = {}) {
         throw new Error(data.error || "Failed to send OTP");
       }
       setInfoMessage("Verification code sent to your mobile number");
-      startCooldown();
+      startCooldown(10);
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to send OTP");
     } finally {
@@ -210,6 +213,7 @@ export function Profile({ mode }: ProfileProps = {}) {
       localStorage.setItem("smartbox_user", userObj.name || "Customer");
       localStorage.setItem("smartbox_user_data", JSON.stringify(userObj));
       if (data.token) localStorage.setItem("smartbox_token", data.token);
+      if (data.refreshToken) localStorage.setItem("smartbox_refresh_token", data.refreshToken);
 
       setCurrentUser(userObj);
       setIsLoggedIn(true);
@@ -260,6 +264,7 @@ export function Profile({ mode }: ProfileProps = {}) {
       localStorage.setItem("smartbox_user", userObj.name || "Customer");
       localStorage.setItem("smartbox_user_data", JSON.stringify(userObj));
       if (data.token) localStorage.setItem("smartbox_token", data.token);
+      if (data.refreshToken) localStorage.setItem("smartbox_refresh_token", data.refreshToken);
 
       setCurrentUser(userObj);
       setIsLoggedIn(true);
@@ -271,10 +276,19 @@ export function Profile({ mode }: ProfileProps = {}) {
   };
 
   const handleLogout = () => {
+    const refreshToken = localStorage.getItem("smartbox_refresh_token");
+    if (refreshToken) {
+      fetch(`${apiUrl}/auth/logout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken }),
+      }).catch(() => {});
+    }
     localStorage.removeItem("smartbox_logged_in");
     localStorage.removeItem("smartbox_user");
     localStorage.removeItem("smartbox_user_data");
     localStorage.removeItem("smartbox_token");
+    localStorage.removeItem("smartbox_refresh_token");
     setIsLoggedIn(false);
     setIsOrdering(false);
     setCurrentUser(null);

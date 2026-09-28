@@ -2,12 +2,14 @@ import { z } from "zod";
 
 const envSchema = z.object({
   PORT: z.string().default("3000"),
-  MONGODB_URI: z.string(),
-  JWT_SECRET: z.string().min(8),
+  MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
+  JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 characters"),
   RESEND_API_KEY: z.string().optional(),
-  STARTMESSAGING_API_KEY: z.string().default("sm_live_99e4752f5008b0a34b7b9da01bd77a793614d27a"),
-  OTP_TEMPLATE_ID: z.string().default("0afbdeb0-785d-4dd0-bd48-365a182df276"),
+  STARTMESSAGING_API_KEY: z.string().min(1, "STARTMESSAGING_API_KEY must be defined in .env"),
+  OTP_TEMPLATE_ID: z.string().min(1, "OTP_TEMPLATE_ID must be defined in .env"),
   DEMO_MODE: z.string().default("false"),
+  JWT_EXPIRES_IN: z.string().default("15m"),
+  REFRESH_TOKEN_EXPIRES_DAYS: z.string().default("7"),
 });
 
 type Env = z.infer<typeof envSchema>;
@@ -25,6 +27,8 @@ export const config = {
   port: parseInt(_env.PORT, 10),
   mongodbUri: _env.MONGODB_URI,
   jwtSecret: _env.JWT_SECRET,
+  jwtExpiresIn: _env.JWT_EXPIRES_IN,
+  refreshTokenExpiresDays: parseInt(_env.REFRESH_TOKEN_EXPIRES_DAYS, 10),
   resendApiKey: _env.RESEND_API_KEY,
   startMessagingApiKey: _env.STARTMESSAGING_API_KEY,
   otpTemplateId: _env.OTP_TEMPLATE_ID,

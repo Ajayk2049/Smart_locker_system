@@ -26,9 +26,6 @@ class _LoginScreenState extends State<LoginScreen> {
         if (auth.savedIdentifier != null && auth.savedIdentifier!.isNotEmpty) {
           _identifierController.text = auth.savedIdentifier!;
         }
-        if (auth.savedPassword != null && auth.savedPassword!.isNotEmpty) {
-          _passwordController.text = auth.savedPassword!;
-        }
       }
     });
   }
