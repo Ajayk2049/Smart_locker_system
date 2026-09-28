@@ -9,6 +9,7 @@ import {
   Check,
   ChevronDown,
   Cpu,
+  KeyRound,
 } from "lucide-react";
 
 export type LockerRequestStatus =
@@ -41,6 +42,7 @@ export interface LockerRequestItem {
   assignedDeviceIds: string[];
   assignedDevicesInfo?: Array<{
     deviceId: string;
+    deviceKey?: string | null;
     online: boolean;
     lastHeartbeat?: string | Date;
     doorState?: string;
@@ -64,6 +66,7 @@ interface RequestsTableProps {
   onOpenDeliver: (item: LockerRequestItem) => void;
   onOpenReject: (item: LockerRequestItem) => void;
   onSimulateDevice: (item: LockerRequestItem, deviceId: string) => void;
+  onShowKey?: (customerName: string, deviceId: string, deviceKey: string) => void;
 }
 
 export function RequestsTable({
@@ -74,6 +77,7 @@ export function RequestsTable({
   onOpenDeliver,
   onOpenReject,
   onSimulateDevice,
+  onShowKey,
 }: RequestsTableProps) {
   return (
     <div className="w-full bg-white dark:bg-[#0D141F] rounded-none border-2 border-slate-200 dark:border-slate-800 shadow-none overflow-hidden">
@@ -200,9 +204,29 @@ export function RequestsTable({
                     {/* Assigned Device */}
                     <td className="py-4 px-4 align-middle">
                       {req.assignedDeviceIds && req.assignedDeviceIds.length > 0 ? (
-                        <span className="h-8 px-2.5 inline-flex items-center justify-center font-mono text-xs font-black bg-[#00F5A0]/20 dark:bg-[#00F5A0]/15 text-black dark:text-[#00F5A0] border border-[#00F5A0]/60 dark:border-[#00F5A0]/40 rounded-none whitespace-nowrap">
-                          {req.assignedDeviceIds.join(", ")}
-                        </span>
+                        <div className="flex flex-col gap-1.5 items-start">
+                          {req.assignedDeviceIds.map((devId) => {
+                            const devInfo = req.assignedDevicesInfo?.find((d) => d.deviceId === devId);
+                            const devKey = devInfo?.deviceKey;
+                            return (
+                              <div key={devId} className="flex items-center gap-1.5">
+                                <span className="h-7 px-2 inline-flex items-center justify-center font-mono text-xs font-black bg-[#00F5A0]/20 dark:bg-[#00F5A0]/15 text-black dark:text-[#00F5A0] border border-[#00F5A0]/60 dark:border-[#00F5A0]/40 rounded-none whitespace-nowrap">
+                                  {devId}
+                                </span>
+                                {devKey && onShowKey && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onShowKey(req.name, devId, devKey)}
+                                    title="View & copy hardware provisioning key"
+                                    className="h-7 px-1.5 inline-flex items-center justify-center bg-slate-100 hover:bg-[#00F5A0] hover:text-black dark:bg-[#080D14] dark:hover:bg-[#00F5A0] dark:hover:text-black text-slate-500 border border-slate-300 dark:border-slate-800 transition-colors cursor-pointer"
+                                  >
+                                    <KeyRound className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       ) : normStatus === "rejected" ? (
                         <span className="text-xs text-rose-500 italic">
                           {req.rejectionReason || "Declined"}

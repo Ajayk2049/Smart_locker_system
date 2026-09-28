@@ -35,9 +35,9 @@ const char* WIFI_PASSWORD = "Your_WiFi_Password";
 // 2. Server URL (Replace with your server IP or domain)
 const char* API_BASE_URL  = "http://192.168.0.100:4300/api";
 
-// 3. Unique Locker Identity & Key
-const char* DEVICE_ID     = "BOX_001";              // Locker Serial Number
-const char* DEVICE_KEY    = "SIMULATOR_TEST_KEY";   // Secret Key assigned to this locker
+// 3. Unique Locker Identity & Key (Obtained from Admin Dashboard when order is accepted)
+const char* DEVICE_ID     = "BOX_7K4M9Q";                     // Unguessable alphanumeric serial from Admin
+const char* DEVICE_KEY    = "sbx_live_a1b2c3d4e5f6...";       // Secret Provision Key from Admin
 ```
 
 ---
@@ -57,8 +57,8 @@ Paste this complete code into **Arduino IDE** or **PlatformIO**, install the **A
 const char* WIFI_SSID     = "YOUR_WIFI_SSID";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 const char* API_BASE_URL  = "http://192.168.1.100:4300/api"; // Server Base URL
-const char* DEVICE_ID     = "BOX_001";                       // Device Serial
-const char* DEVICE_KEY    = "SIMULATOR_TEST_KEY";            // Secret Device Key
+const char* DEVICE_ID     = "BOX_7K4M9Q";                    // Alphanumeric Serial from Admin
+const char* DEVICE_KEY    = "sbx_live_a1b2c3d4e5f6...";      // Secret Provision Key from Admin (or "SIMULATOR_TEST_KEY" for simulator)
 
 // ==========================================
 // 2. PIN DEFINITIONS

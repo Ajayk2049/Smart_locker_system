@@ -5,6 +5,7 @@ import { DeliveredModal } from "../modals/DeliveredModal";
 import { RejectModal } from "../modals/RejectModal";
 import { SimulatorModal } from "../modals/SimulatorModal";
 import { PricingModal, SlotPricingData } from "../modals/PricingModal";
+import { ProvisionedKeyModal } from "../modals/ProvisionedKeyModal";
 
 export interface DashboardModalsProps {
   pricingModalOpen: boolean;
@@ -20,10 +21,18 @@ export interface DashboardModalsProps {
   } | null;
   assignDeviceIdInput: string;
   onAssignDeviceIdChange: (val: string) => void;
+  onRandomizeId?: () => void;
   prepareNotesInput: string;
   onPrepareNotesChange: (val: string) => void;
   onClosePrepare: () => void;
   onConfirmPrepare: () => void;
+
+  provisionedKeyModalData: {
+    customerName: string;
+    deviceId: string;
+    deviceKey: string;
+  } | null;
+  onCloseProvisionedKey: () => void;
 
   dispatchModalData: {
     requestId: string;
@@ -70,10 +79,14 @@ export function DashboardModals({
   prepareModalData,
   assignDeviceIdInput,
   onAssignDeviceIdChange,
+  onRandomizeId,
   prepareNotesInput,
   onPrepareNotesChange,
   onClosePrepare,
   onConfirmPrepare,
+
+  provisionedKeyModalData,
+  onCloseProvisionedKey,
 
   dispatchModalData,
   dispatchNotesInput,
@@ -103,10 +116,18 @@ export function DashboardModals({
           data={prepareModalData}
           deviceIdInput={assignDeviceIdInput}
           onDeviceIdChange={onAssignDeviceIdChange}
+          onRandomizeId={onRandomizeId}
           notesInput={prepareNotesInput}
           onNotesChange={onPrepareNotesChange}
           onClose={onClosePrepare}
           onConfirm={onConfirmPrepare}
+        />
+      )}
+
+      {provisionedKeyModalData && (
+        <ProvisionedKeyModal
+          data={provisionedKeyModalData}
+          onClose={onCloseProvisionedKey}
         />
       )}
 

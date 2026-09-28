@@ -1,5 +1,5 @@
 import React from "react";
-import { Package, X, Check } from "lucide-react";
+import { Package, X, Check, Dices } from "lucide-react";
 
 interface PrepareModalProps {
   data: {
@@ -10,6 +10,7 @@ interface PrepareModalProps {
   };
   deviceIdInput: string;
   onDeviceIdChange: (value: string) => void;
+  onRandomizeId?: () => void;
   notesInput: string;
   onNotesChange: (value: string) => void;
   onClose: () => void;
@@ -20,6 +21,7 @@ export function PrepareModal({
   data,
   deviceIdInput,
   onDeviceIdChange,
+  onRandomizeId,
   notesInput,
   onNotesChange,
   onClose,
@@ -55,15 +57,28 @@ export function PrepareModal({
             <label className="text-sm font-bold text-slate-800 dark:text-slate-200">
               Locker Device ID
             </label>
-            <input
-              type="text"
-              value={deviceIdInput}
-              onChange={(e) => onDeviceIdChange(e.target.value)}
-              placeholder="e.g. BOX_001"
-              className="w-full px-3.5 py-2.5 rounded-none bg-slate-50 dark:bg-[#080D14] border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-mono font-black text-sm focus:outline-none focus:border-[#00F5A0] focus:ring-1 focus:ring-[#00F5A0]"
-            />
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={deviceIdInput}
+                onChange={(e) => onDeviceIdChange(e.target.value.toUpperCase())}
+                placeholder="e.g. BOX_7K4M9Q"
+                className="flex-1 px-3.5 py-2.5 rounded-none bg-slate-50 dark:bg-[#080D14] border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-mono font-black text-sm focus:outline-none focus:border-[#00F5A0] focus:ring-1 focus:ring-[#00F5A0]"
+              />
+              {onRandomizeId && (
+                <button
+                  type="button"
+                  onClick={onRandomizeId}
+                  className="px-3.5 py-2.5 rounded-none bg-[#00F5A0]/20 hover:bg-[#00F5A0] hover:text-black dark:bg-[#00F5A0]/15 dark:hover:bg-[#00F5A0] dark:hover:text-black text-black dark:text-[#00F5A0] font-black text-xs border border-[#00F5A0]/60 dark:border-[#00F5A0]/40 flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shadow-none"
+                  title="Generate a new random alphanumeric ID"
+                >
+                  <Dices className="w-4 h-4" />
+                  <span>Randomize Again</span>
+                </button>
+              )}
+            </div>
             <span className="text-xs text-slate-400">
-              Order will move to <strong className="text-[#00F5A0]">PREPARING</strong> while hub technicians calibrate and box the unit.
+              Unguessable alphanumeric serial assigned to this hardware unit.
             </span>
           </div>
 

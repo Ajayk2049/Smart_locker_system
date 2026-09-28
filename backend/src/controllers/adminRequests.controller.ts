@@ -1,8 +1,30 @@
+import crypto from "crypto";
 import { FastifyRequest, FastifyReply } from "fastify";
 import { LockerRequest } from "../models/LockerRequest.model.js";
 import { User } from "../models/User.model.js";
 import { Device } from "../models/Device.model.js";
 import { Log } from "../models/Log.model.js";
+
+// Generates a cryptographically random, unguessable alphanumeric device ID like BOX_7K4M9Q
+export async function generateSecureDeviceId(): Promise<string> {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Removed similar looking chars (0, O, 1, I)
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const bytes = crypto.randomBytes(6);
+    let code = "";
+    for (let i = 0; i < 6; i++) {
+      code += chars[bytes[i] % chars.length];
+    }
+    const candidateId = `BOX_${code}`;
+    const exists = await Device.findOne({ deviceId: candidateId });
+    if (!exists) return candidateId;
+  }
+  return `BOX_${Date.now().toString(36).toUpperCase()}`;
+}
+
+// Generates a high-entropy secret hardware provision key for the ESP32
+export function generateDeviceKey(): string {
+  return `sbx_live_${crypto.randomBytes(16).toString("hex")}`;
+}
 
 // 1. Get all locker requests / orders
 export async function getAllRequests(request: FastifyRequest, reply: FastifyReply) {
@@ -35,11 +57,20 @@ export async function getAllRequests(request: FastifyRequest, reply: FastifyRepl
     .populate("userId", "name phone email address pincode units orderStatus")
     .sort({ createdAt: -1 });
 
-  // Attach live device heartbeat and online status from Device model
+  // Attach live device heartbeat, key and online status from Device model
   const allAssignedIds = requests.flatMap((r) => r.assignedDeviceIds || []);
   const devices = await Device.find({ deviceId: { $in: allAssignedIds } }).select(
-    "deviceId online lastHeartbeat doorState"
+    "deviceId online lastHeartbeat doorState deviceKey"
   );
+
+  // Auto-backfill deviceKey for older devices created prior to key generator
+  for (const d of devices) {
+    if (!d.deviceKey) {
+      d.deviceKey = generateDeviceKey();
+      await d.save();
+    }
+  }
+
   const deviceMap = new Map(devices.map((d) => [d.deviceId, d]));
 
   const requestsWithStatus = requests.map((req) => {
@@ -48,6 +79,7 @@ export async function getAllRequests(request: FastifyRequest, reply: FastifyRepl
       const d = deviceMap.get(id);
       return {
         deviceId: id,
+        deviceKey: d?.deviceKey || null,
         online: d ? !!d.online : false,
         lastHeartbeat: d ? d.lastHeartbeat : null,
         doorState: d ? d.doorState : "closed",
@@ -93,12 +125,10 @@ export async function updateRequestStatus(request: FastifyRequest, reply: Fastif
 
   // Step 1: Accept & Prepare
   if (status === "preparing" || status === "approved") {
-    const targetDeviceId = deviceId || (lockerReq.assignedDeviceIds && lockerReq.assignedDeviceIds[0]);
-    if (!targetDeviceId || !targetDeviceId.trim()) {
-      return reply.status(400).send({ error: "Locker device ID is required to accept the request" });
+    let cleanDeviceId = deviceId?.trim().toUpperCase() || (lockerReq.assignedDeviceIds && lockerReq.assignedDeviceIds[0]);
+    if (!cleanDeviceId) {
+      cleanDeviceId = await generateSecureDeviceId();
     }
-
-    const cleanDeviceId = targetDeviceId.trim().toUpperCase();
 
     // Check if device is already assigned to another customer's order
     const existingReqWithDevice = await LockerRequest.findOne({
@@ -119,6 +149,9 @@ export async function updateRequestStatus(request: FastifyRequest, reply: Fastif
         });
       }
       device.ownerId = lockerReq.userId;
+      if (!device.deviceKey) {
+        device.deviceKey = generateDeviceKey();
+      }
       await device.save();
     } else {
       device = await Device.create({
@@ -129,6 +162,7 @@ export async function updateRequestStatus(request: FastifyRequest, reply: Fastif
         allowedSlots: 2,
         doorState: "closed",
         online: true,
+        deviceKey: generateDeviceKey(),
       });
     }
 

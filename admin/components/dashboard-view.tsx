@@ -43,6 +43,12 @@ export function DashboardView({
   const [assignDeviceIdInput, setAssignDeviceIdInput] = useState("");
   const [prepareNotesInput, setPrepareNotesInput] = useState("");
 
+  const [provisionedKeyModalData, setProvisionedKeyModalData] = useState<{
+    customerName: string;
+    deviceId: string;
+    deviceKey: string;
+  } | null>(null);
+
   const [dispatchModalData, setDispatchModalData] = useState<{ requestId: string; customerName: string; deviceId: string } | null>(null);
   const [dispatchNotesInput, setDispatchNotesInput] = useState("");
 
@@ -234,6 +240,15 @@ export function DashboardView({
 
 
   // Transition handlers
+  const generateRandomBoxId = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let code = "";
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return `BOX_${code}`;
+  };
+
   const handleConfirmPrepare = async () => {
     if (!prepareModalData) return;
     const deviceId = assignDeviceIdInput.trim().toUpperCase() || prepareModalData.suggestedDeviceId;
@@ -261,8 +276,20 @@ export function DashboardView({
       if (!res.ok) throw new Error(data.error || "Failed to accept request");
 
       showNotification(`Order accepted! Locker ${deviceId} is now in PREPARATION.`);
+      
+      const createdKey = data.device?.deviceKey;
+      const customerName = prepareModalData.customerName;
       setPrepareModalData(null);
       await loadRequests();
+
+      // Immediately show provision modal with secret hardware key for technician
+      if (createdKey) {
+        setProvisionedKeyModalData({
+          customerName,
+          deviceId,
+          deviceKey: createdKey,
+        });
+      }
     } catch (err: any) {
       showNotification(err.message || "Failed to accept request", true);
     }
@@ -453,11 +480,10 @@ export function DashboardView({
             isLoading={isLoading}
             onOpenPrepare={(req) => {
               const usedIds = new Set(requests.flatMap((r) => r.assignedDeviceIds || []));
-              let nextNum = 1;
-              while (usedIds.has(`BOX_${String(nextNum).padStart(3, "0")}`)) {
-                nextNum++;
+              let nextSuggestedId = generateRandomBoxId();
+              while (usedIds.has(nextSuggestedId)) {
+                nextSuggestedId = generateRandomBoxId();
               }
-              const nextSuggestedId = `BOX_${String(nextNum).padStart(3, "0")}`;
               setPrepareModalData({
                 requestId: req._id,
                 customerName: req.name,
@@ -496,6 +522,13 @@ export function DashboardView({
                 customerName: req.name,
               });
             }}
+            onShowKey={(customerName, deviceId, deviceKey) => {
+              setProvisionedKeyModalData({
+                customerName,
+                deviceId,
+                deviceKey,
+              });
+            }}
           />
         )}
       </main>
@@ -509,10 +542,13 @@ export function DashboardView({
         prepareModalData={prepareModalData}
         assignDeviceIdInput={assignDeviceIdInput}
         onAssignDeviceIdChange={setAssignDeviceIdInput}
+        onRandomizeId={() => setAssignDeviceIdInput(generateRandomBoxId())}
         prepareNotesInput={prepareNotesInput}
         onPrepareNotesChange={setPrepareNotesInput}
         onClosePrepare={() => setPrepareModalData(null)}
         onConfirmPrepare={handleConfirmPrepare}
+        provisionedKeyModalData={provisionedKeyModalData}
+        onCloseProvisionedKey={() => setProvisionedKeyModalData(null)}
         dispatchModalData={dispatchModalData}
         dispatchNotesInput={dispatchNotesInput}
         onDispatchNotesChange={setDispatchNotesInput}
