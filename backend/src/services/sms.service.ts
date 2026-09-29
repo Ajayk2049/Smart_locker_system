@@ -52,7 +52,7 @@ export class SMSService {
 
     // Demo mode bypass: only when DEMO_MODE=true is explicitly configured in .env
     if (this.isDemoMode) {
-      console.log(`🧪 [SMS Demo Mode] Simulated SMS dispatch for ${this.maskPhone(cleanPhone)}.`);
+      console.log(`🧪 [SMS Demo Mode] Simulated SMS dispatch for ${this.maskPhone(cleanPhone)}. DEMO OTP: 123456`);
       return { success: true, messageId: "demo_msg_" + Date.now(), isDemo: true };
     }
 

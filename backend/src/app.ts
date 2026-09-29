@@ -125,6 +125,9 @@ async function bootstrap() {
         return reply.status(401).send({ error: "Invalid admin token" });
       }
     }
+    reply.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    reply.header("Pragma", "no-cache");
+    reply.header("Expires", "0");
     return reply.type("text/html").send(simulatorHtml);
   });
 

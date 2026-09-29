@@ -47,6 +47,10 @@ export function DashboardHeader({
   onPendingSubFilterChange,
   filterCounts,
 }: DashboardHeaderProps) {
+  const simulatorDirectUrl = `${(
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:4300/api"
+  ).replace(/\/api\/?$/, "")}/simulator?deviceId=BOX_001&key=SIMULATOR_TEST_KEY`;
+
   return (
     <>
       {/* Top Navigation */}
@@ -77,7 +81,7 @@ export function DashboardHeader({
             </button>
 
             <a
-              href="http://localhost:4300/simulator"
+              href={simulatorDirectUrl}
               target="_blank"
               rel="noopener noreferrer"
               title="Launch Hardware Simulator Console"

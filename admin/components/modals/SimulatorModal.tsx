@@ -5,6 +5,7 @@ interface SimulatorModalProps {
   data: {
     deviceId: string;
     customerName: string;
+    deviceKey?: string;
   };
   onClose: () => void;
 }
@@ -14,9 +15,13 @@ export function SimulatorModal({ data, onClose }: SimulatorModalProps) {
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:4300/api"
   ).replace(/\/api\/?$/, "");
 
-  const simulatorUrl = `${backendBase}/simulator?deviceId=${encodeURIComponent(
-    data.deviceId
-  )}`;
+  const adminToken =
+    typeof window !== "undefined" ? localStorage.getItem("admin_token") || "" : "";
+
+  const simulatorUrl =
+    `${backendBase}/simulator?deviceId=${encodeURIComponent(data.deviceId)}` +
+    `&key=${encodeURIComponent(data.deviceKey || "SIMULATOR_TEST_KEY")}` +
+    (adminToken ? `&adminToken=${encodeURIComponent(adminToken)}` : "");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150">

@@ -13,69 +13,41 @@ import {
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 
 export default async function authRoutes(fastify: FastifyInstance) {
-  // 1a. Check Phone Number (Max 10 / minute)
+  const isProd = process.env.NODE_ENV === "production";
+
+  // 1a. Check Phone Number (Max 10 / minute in prod)
   fastify.post("/check-phone", {
-    config: {
-      rateLimit: {
-        max: 10,
-        timeWindow: "1 minute",
-      },
-    },
+    ...(isProd ? { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } } : {}),
     handler: checkPhone,
   });
 
-  // 1b. Smart Pre-Check & Send OTP (Max 3 / minute)
+  // 1b. Smart Pre-Check & Send OTP (Max 3 / minute in prod)
   fastify.post("/send-otp", {
-    config: {
-      rateLimit: {
-        max: 3,
-        timeWindow: "1 minute",
-      },
-    },
+    ...(isProd ? { config: { rateLimit: { max: 3, timeWindow: "1 minute" } } } : {}),
     handler: sendOtp,
   });
 
-  // 2. Register Account with OTP (+ optional Join Code) (Max 5 / minute)
+  // 2. Register Account with OTP (+ optional Join Code) (Max 5 / minute in prod)
   fastify.post("/register-with-otp", {
-    config: {
-      rateLimit: {
-        max: 5,
-        timeWindow: "1 minute",
-      },
-    },
+    ...(isProd ? { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } } : {}),
     handler: registerWithOtp,
   });
 
   // Also support /register as an alias to registerWithOtp
   fastify.post("/register", {
-    config: {
-      rateLimit: {
-        max: 5,
-        timeWindow: "1 minute",
-      },
-    },
+    ...(isProd ? { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } } : {}),
     handler: registerWithOtp,
   });
 
-  // 3. Login (via Mobile Number OR Email + Password) (Max 5 / minute per IP)
+  // 3. Login (via Mobile Number OR Email + Password) (Max 5 / minute in prod)
   fastify.post("/login", {
-    config: {
-      rateLimit: {
-        max: 5,
-        timeWindow: "1 minute",
-      },
-    },
+    ...(isProd ? { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } } : {}),
     handler: login,
   });
 
-  // 3b. Refresh Access Token with Token Rotation (Max 20 / minute)
+  // 3b. Refresh Access Token with Token Rotation (Max 20 / minute in prod)
   fastify.post("/refresh", {
-    config: {
-      rateLimit: {
-        max: 20,
-        timeWindow: "1 minute",
-      },
-    },
+    ...(isProd ? { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } } : {}),
     handler: refreshTokenHandler,
   });
 

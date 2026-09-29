@@ -67,6 +67,7 @@ export interface DashboardModalsProps {
   simulatorModalData: {
     deviceId: string;
     customerName: string;
+    deviceKey?: string;
   } | null;
   onCloseSimulator: () => void;
 }

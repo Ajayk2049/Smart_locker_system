@@ -134,7 +134,7 @@ export function DeliveryManifest({ currentUser, onLogout, onStartOrder }: Delive
                     className="w-full mt-2 py-2 px-3 bg-[#3D2310] hover:bg-[#261508] text-[#FAF9F5] font-mono text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
                   >
                     <Plus className="w-3.5 h-3.5 text-amber-300 stroke-[3]" />
-                    <span>+ ORDER ANOTHER LOCKER</span>
+                    <span> ORDER ANOTHER LOCKER</span>
                   </button>
                 )}
               </div>

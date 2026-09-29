@@ -1,27 +1,25 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class AppConfig {
-  static const String defaultLocalHost = '192.168.0.101:4300';
+  static const String defaultLocalHost = '192.168.0.102:4300';
   static const String prodHost = 'api.yourdomain.com';
 
   static const String googleServerClientId =
       '994828674942-tejtf8ntc6md6dvv3uvq0j92js6c42tk.apps.googleusercontent.com';
 
-  static bool _isProd = kReleaseMode;
+  static bool _isProd = false;
   static String _activeHost = defaultLocalHost;
   static const FlutterSecureStorage _storage = FlutterSecureStorage();
   static const String _hostStorageKey = 'smartbox_server_host';
 
   static Future<void> init({bool? isProd}) async {
-    _isProd = isProd ?? kReleaseMode;
-    if (!_isProd) {
-      final savedHost = await _storage.read(key: _hostStorageKey);
-      if (savedHost != null && _isValidDevHost(savedHost)) {
-        _activeHost = savedHost.trim();
-      } else {
-        _activeHost = defaultLocalHost;
-      }
+    final savedHost = await _storage.read(key: _hostStorageKey);
+    if (savedHost != null && _isValidDevHost(savedHost)) {
+      _activeHost = savedHost.trim();
+      _isProd = false;
+    } else {
+      _activeHost = defaultLocalHost;
+      _isProd = isProd ?? false;
     }
   }
 
@@ -44,12 +42,14 @@ class AppConfig {
   }
 
   static Future<bool> updateHost(String newHost) async {
-    // Arbitrary host pivot is strictly prohibited in production mode
-    if (_isProd) return false;
-
     final clean = newHost.trim().replaceAll('http://', '').replaceAll('https://', '').replaceAll('/', '');
     if (_isValidDevHost(clean)) {
       _activeHost = clean;
+      _isProd = false;
+      await _storage.write(key: _hostStorageKey, value: clean);
+      return true;
+    } else if (clean == prodHost) {
+      _isProd = true;
       await _storage.write(key: _hostStorageKey, value: clean);
       return true;
     }
@@ -58,6 +58,7 @@ class AppConfig {
 
   static Future<void> resetToDefaultHost() async {
     _activeHost = defaultLocalHost;
+    _isProd = false;
     await _storage.delete(key: _hostStorageKey);
   }
 

@@ -150,8 +150,7 @@ export const simulatorHtml = `<!DOCTYPE html>
       align-items: center;
       justify-content: center;
       box-shadow: 0 15px 35px rgba(0,0,0,0.5);
-      overflow: hidden;
-      perspective: 800px;
+      perspective: 900px;
     }
     .locker-interior {
       position: absolute;
@@ -161,6 +160,7 @@ export const simulatorHtml = `<!DOCTYPE html>
       align-items: center;
       justify-content: center;
       font-size: 40px;
+      border-radius: 10px;
     }
     .locker-door {
       position: absolute;
@@ -176,6 +176,11 @@ export const simulatorHtml = `<!DOCTYPE html>
       transform-origin: left center;
       transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
       z-index: 2;
+      cursor: pointer;
+      user-select: none;
+    }
+    .locker-door:hover {
+      border-color: #64748B;
     }
     .locker-door.open {
       transform: rotateY(-85deg);
@@ -272,6 +277,26 @@ export const simulatorHtml = `<!DOCTYPE html>
       transition: all 0.15s;
       border: 1px solid transparent;
     }
+    .btn-unlock {
+      background: #F59E0B;
+      color: #000;
+      box-shadow: 0 4px 14px rgba(245, 158, 11, 0.25);
+    }
+    .btn-unlock:hover { background: #D97706; transform: translateY(-1px); }
+    .btn-unlock:active { transform: scale(0.97); }
+    .btn-lock {
+      background: #10B981;
+      color: #000;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
+    }
+    .btn-lock:hover { background: #059669; transform: translateY(-1px); }
+    .btn-lock:active { transform: scale(0.97); }
+    .btn-cyan {
+      background: rgba(6, 182, 212, 0.12);
+      border-color: rgba(6, 182, 212, 0.35);
+      color: var(--cyan);
+    }
+    .btn-cyan:hover { background: rgba(6, 182, 212, 0.22); color: #fff; }
     .btn-primary {
       background: var(--amber);
       color: #000;
@@ -353,10 +378,12 @@ export const simulatorHtml = `<!DOCTYPE html>
     </div>
     <div class="device-strip">
       <label>Device ID:</label>
-      <input id="deviceIdInput" type="text" value="BOX_001" spellcheck="false" oninput="onDeviceIdInput()" onchange="onDeviceIdChange()" />
+      <input id="deviceIdInput" type="text" value="BOX_001" spellcheck="false" />
       <label style="margin-left: 8px;">Key:</label>
-      <input id="deviceKeyInput" type="password" placeholder="Provisioned Key" spellcheck="false" style="width: 140px;" onchange="onDeviceKeyChange()" />
-      <button id="powerBtn" class="btn-toggle-power" onclick="togglePower()">
+      <input id="deviceKeyInput" type="password" placeholder="Key (SIMULATOR_TEST_KEY)" spellcheck="false" style="width: 160px;" />
+      <label style="margin-left: 8px;">Admin JWT:</label>
+      <input id="adminTokenInput" type="password" placeholder="Admin token for unlock test" spellcheck="false" style="width: 140px;" />
+      <button id="powerBtn" class="btn-toggle-power">
         <span id="powerDot">●</span>
         <span id="powerText">Powered ON</span>
       </button>
@@ -373,7 +400,7 @@ export const simulatorHtml = `<!DOCTYPE html>
       <div class="locker-stage">
         <div class="locker-box">
           <div class="locker-interior">📦</div>
-          <div id="lockerDoor" class="locker-door">
+          <div id="lockerDoor" class="locker-door" title="Click door directly to test push/pull">
             <span class="door-label" id="doorDeviceBadge">BOX_001</span>
             <div class="door-handle"></div>
           </div>
@@ -397,32 +424,32 @@ export const simulatorHtml = `<!DOCTYPE html>
 
       <!-- Controls -->
       <div style="display: flex; flex-direction: column; gap: 10px;">
-        <label style="font-size: 12px; font-weight: 700; color: var(--text-muted);">
-          Manual Action Triggers:
+        <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">
+          Locker Door Controls:
         </label>
         
         <div class="btn-group">
-          <button class="btn btn-secondary" onclick="toggleDoor()">
-            <span id="doorBtnIcon">🚪</span>
-            <span id="doorBtnText">Pull Door Open</span>
+          <button id="btnUnlock" class="btn btn-unlock" title="Actuate solenoid relay (3s pulse) and pop door open">
+            <span>⚡</span>
+            <span>Unlock Door</span>
           </button>
-          <button class="btn btn-success" onclick="closeAndLock()">
+          <button id="btnLock" class="btn btn-lock" title="Push door shut and latch closed">
             <span>🔒</span>
-            <span>Push-to-Lock Shut</span>
+            <span>Lock Door</span>
           </button>
         </div>
 
-        <button class="btn btn-primary" onclick="triggerTestUnlock()" style="margin-top: 4px;">
-          <span>⚡</span>
-          <span>Trigger Mobile Unlock Test (POST /api/test/unlock)</span>
+        <button id="btnCloudUnlock" class="btn btn-cyan" style="margin-top: 4px;" title="Send unlock command to backend queue for ESP32 polling">
+          <span>📡</span>
+          <span>Test Cloud Remote Unlock (POST /api/test/unlock)</span>
         </button>
 
         <div style="padding: 10px 14px; background: #0B0F1C; border-radius: 10px; border: 1px solid var(--border); font-size: 11px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
-          <span>Auto-Relock Cycle (12s countdown):</span>
-          <input type="checkbox" id="autoDeliveryToggle" style="accent-color: var(--amber); cursor: pointer;" />
+          <span>Auto-Relock Delivery Cycle (8s countdown):</span>
+          <input type="checkbox" id="autoDeliveryToggle" checked style="accent-color: var(--amber); cursor: pointer;" />
         </div>
-        <p style="font-size: 10px; color: #64748B; font-style: italic; text-align: center;">
-          Default: Door stays OPEN when unlocked. Click "Push-to-Lock Shut" to simulate courier locking it!
+        <p style="font-size: 10px; color: #64748B; font-style: italic; text-align: center; margin: 0;">
+          Tip: You can also click the 3D Locker Door directly above to toggle it!
         </p>
       </div>
     </div>
@@ -435,7 +462,7 @@ export const simulatorHtml = `<!DOCTYPE html>
           <span>ESP32 Firmware Serial Console (UART @ 115200)</span>
         </div>
         <div class="terminal-actions">
-          <button onclick="clearLogs()">Clear</button>
+          <button id="clearLogsBtn">Clear</button>
         </div>
       </div>
 
@@ -450,7 +477,9 @@ export const simulatorHtml = `<!DOCTYPE html>
     let pollTimer = null;
     let heartbeatTimer = null;
 
-    const API_BASE = window.location.origin + "/api";
+    const API_BASE = (typeof window !== "undefined" && window.location.origin && window.location.origin !== "null" && window.location.protocol !== "file:")
+      ? (window.location.origin + "/api")
+      : "http://127.0.0.1:4300/api";
 
     function log(tag, msg, type = "") {
       const now = new Date();
@@ -491,6 +520,20 @@ export const simulatorHtml = `<!DOCTYPE html>
             if (keyInputEl) keyInputEl.value = savedKey;
           }
         }
+        const paramAdminToken = urlParams.get("adminToken") || urlParams.get("token");
+        if (paramAdminToken) {
+          const adminInputEl = document.getElementById("adminTokenInput");
+          if (adminInputEl) adminInputEl.value = paramAdminToken.trim();
+          try { localStorage.setItem("sim_admin_token", paramAdminToken.trim()); } catch (e) {}
+        } else {
+          try {
+            const savedAdmin = localStorage.getItem("sim_admin_token");
+            if (savedAdmin) {
+              const adminInputEl = document.getElementById("adminTokenInput");
+              if (adminInputEl) adminInputEl.value = savedAdmin;
+            }
+          } catch (e) {}
+        }
       } catch (e) {}
     }
 
@@ -514,10 +557,14 @@ export const simulatorHtml = `<!DOCTYPE html>
 
     function onDeviceKeyChange() {
       const id = getDeviceId();
-      const key = getDeviceKey();
+      const inputEl = document.getElementById("deviceKeyInput");
+      const key = (inputEl ? inputEl.value : "").trim();
       if (key) {
         localStorage.setItem("sim_key_" + id, key);
         log("DEVICE", \`Device key configured for \${id}\`, "boot");
+      } else {
+        localStorage.removeItem("sim_key_" + id);
+        log("DEVICE", \`Device key cleared for \${id} (using default dev key)\`, "boot");
       }
     }
 
@@ -531,7 +578,25 @@ export const simulatorHtml = `<!DOCTYPE html>
 
     function getDeviceKey() {
       const keyInputEl = document.getElementById("deviceKeyInput");
-      return (keyInputEl ? keyInputEl.value : "").trim();
+      const val = (keyInputEl ? keyInputEl.value : "").trim();
+      return val || "SIMULATOR_TEST_KEY";
+    }
+
+    function getAdminToken() {
+      const adminInputEl = document.getElementById("adminTokenInput");
+      return (adminInputEl ? adminInputEl.value : "").trim();
+    }
+
+    function onAdminTokenChange() {
+      const token = getAdminToken();
+      try {
+        if (token) {
+          localStorage.setItem("sim_admin_token", token);
+          log("DEVICE", "Admin token configured for unlock test endpoint", "boot");
+        } else {
+          localStorage.removeItem("sim_admin_token");
+        }
+      } catch (e) {}
     }
 
     // 1. Initial boot sync
@@ -542,8 +607,22 @@ export const simulatorHtml = `<!DOCTYPE html>
       log("BOOT", \`ESP32 System initialized. Device ID: \${id}\`, "boot");
       log("BOOT", \`Wi-Fi connected to Local Hub. Base URL: \${API_BASE}\`, "boot");
       
-      // Initial telemetry sync
-      await sendTelemetry(doorState);
+      // Query current real cloud state on boot (DO NOT overwrite DB with telemetry)
+      try {
+        const key = getDeviceKey();
+        const res = await fetch(\`\${API_BASE}/device/command?deviceId=\${id}\`, {
+          headers: { ...(key ? { "X-Device-Key": key } : {}) }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.doorState) {
+            updateDoorVisualState(data.doorState);
+            log("BOOT", \`Initial state synced from cloud DB: Door is currently \${data.doorState.toUpperCase()}\`, "boot");
+          }
+        }
+      } catch (e) {
+        log("BOOT", \`Initial state sync skipped: \${e.message}\`, "error");
+      }
       // Start timers
       startLoop();
     }
@@ -563,6 +642,7 @@ export const simulatorHtml = `<!DOCTYPE html>
     }
 
     // 2. Poll Command from Backend
+    let lastPollError = "";
     async function pollCommand() {
       if (!isPowered) return;
       const id = getDeviceId();
@@ -571,7 +651,17 @@ export const simulatorHtml = `<!DOCTYPE html>
         const res = await fetch(\`\${API_BASE}/device/command?deviceId=\${id}\`, {
           headers: { ...(key ? { "X-Device-Key": key } : {}) }
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          const errKey = res.status + " " + id;
+          if (errKey !== lastPollError) {
+            lastPollError = errKey;
+            let detail = "";
+            try { detail = ": " + JSON.stringify(await res.json()); } catch (e) {}
+            log("ERROR", \`Poll failed for \${id}: HTTP \${res.status}\${detail}. Check Device ID and Key.\`, "error");
+          }
+          return;
+        }
+        lastPollError = "";
         const data = await res.json();
 
         if (data.action === "unlock") {
@@ -592,76 +682,103 @@ export const simulatorHtml = `<!DOCTYPE html>
         setDoorState("open");
         log("SENSOR", "⚡ Solenoid released mechanical latch! Door popped OPEN.", "sensor");
 
-        const autoDelivery = document.getElementById("autoDeliveryToggle").checked;
+        const autoDelivery = document.getElementById("autoDeliveryToggle")?.checked;
         if (autoDelivery) {
-          log("SENSOR", "Auto-relock enabled: Door will push shut in 12 seconds...", "sensor");
+          log("SENSOR", "Auto-relock enabled: Door will push shut in 8 seconds (Simulating courier closing door)...", "sensor");
           setTimeout(() => {
             setDoorState("closed");
-            log("SENSOR", "🔒 [AUTO-RELOCK] Door pushed shut! Delivery completed!", "sensor");
-          }, 12000);
+            log("SENSOR", "🔒 [AUTO-RELOCK] Door pushed shut! Mechanical catch engaged! Delivery completed!", "sensor");
+          }, 8000);
         } else {
-          log("SENSOR", "Door is AJAR / OPEN. When ready, click 'Push-to-Lock Shut' to simulate closing the locker.", "sensor");
+          log("SENSOR", "Door is AJAR / OPEN. Click 'Lock Door' to simulate closing the locker.", "sensor");
         }
-      }, 600);
+      }, 500);
     }
 
     function energizeSolenoid() {
       solenoidActive = true;
-      document.getElementById("solenoidLed").className = "led-dot solenoid-active";
-      document.getElementById("solenoidLabel").innerText = "SOLENOID: ENERGIZED (3.0s)";
+      const led = document.getElementById("solenoidLed");
+      const lbl = document.getElementById("solenoidLabel");
+      if (led) led.className = "led-dot solenoid-active";
+      if (lbl) lbl.innerText = "SOLENOID: ENERGIZED (3.0s)";
 
       // De-energize after 3.0 seconds
       setTimeout(() => {
         solenoidActive = false;
-        document.getElementById("solenoidLed").className = "led-dot";
-        document.getElementById("solenoidLabel").innerText = "SOLENOID: INACTIVE";
+        if (led) led.className = "led-dot";
+        if (lbl) lbl.innerText = "SOLENOID: INACTIVE";
         log("RELAY", "Relay cut off. Solenoid returned to locked catch position.", "hb");
       }, 3000);
     }
 
-    // 4. Door State Management & Telemetry
-    async function setDoorState(newState) {
+    // Visual State Synchronizer (without re-dispatching telemetry)
+    function updateDoorVisualState(newState) {
       doorState = newState;
       const doorEl = document.getElementById("lockerDoor");
       const doorLed = document.getElementById("doorLed");
       const label = document.getElementById("doorStateLabel");
-      const btnText = document.getElementById("doorBtnText");
-      const btnIcon = document.getElementById("doorBtnIcon");
 
       if (doorState === "open") {
-        doorEl.classList.add("open");
-        doorLed.className = "led-dot door-open";
-        label.innerText = "DOOR OPEN";
-        btnText.innerText = "Door is Open";
-        btnIcon.innerText = "🚪";
+        if (doorEl) doorEl.classList.add("open");
+        if (doorLed) doorLed.className = "led-dot door-open";
+        if (label) label.innerText = "DOOR OPEN (UNLOCKED)";
       } else {
-        doorEl.classList.remove("open");
-        doorLed.className = "led-dot";
-        label.innerText = "DOOR CLOSED";
-        btnText.innerText = "Pull Door Open";
-        btnIcon.innerText = "🚪";
+        if (doorEl) doorEl.classList.remove("open");
+        if (doorLed) doorLed.className = "led-dot";
+        if (label) label.innerText = "DOOR CLOSED (LOCKED)";
       }
+    }
 
-      await sendTelemetry(doorState);
+    window.addEventListener("error", (e) => {
+      if (typeof log === "function") log("JS_ERR", e.message, "error");
+    });
+    window.addEventListener("unhandledrejection", (e) => {
+      if (typeof log === "function") log("PROMISE_ERR", e.reason?.message || String(e.reason), "error");
+    });
+
+    // 4. Door State Management & Telemetry
+    async function setDoorState(newState) {
+      updateDoorVisualState(newState);
+      await sendTelemetry(newState);
     }
 
     async function sendTelemetry(state) {
-      if (!isPowered) return;
+      if (!isPowered) {
+        log("POWER", "Cannot send telemetry: Virtual hardware is powered OFF.", "error");
+        return;
+      }
       const id = getDeviceId();
       const key = getDeviceKey();
+      const doorStatus = state === "closed" ? "locked" : "unlocked";
+
+      log("UART", \`TX -> POST /api/device/telemetry: { deviceId: "\${id}", doorState: "\${state}", doorStatus: "\${doorStatus}" }\`, "sensor");
+
       try {
         const res = await fetch(\`\${API_BASE}/device/telemetry\`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "X-Device-Id": id,
             ...(key ? { "X-Device-Key": key } : {})
           },
-          body: JSON.stringify({ deviceId: id, doorState: state })
+          body: JSON.stringify({
+            deviceId: id,
+            doorState: state,
+            doorStatus: doorStatus
+          })
         });
+
+        if (!res.ok) {
+          let detail = "";
+          try { detail = ": " + JSON.stringify(await res.json()); } catch (e) {}
+          log("ERROR", \`POST /device/telemetry failed: HTTP \${res.status}\${detail}. Check Device ID and Key.\`, "error");
+          return;
+        }
+
         const data = await res.json();
-        log("SENSOR", \`POST /device/telemetry -> doorState: \${state} (Acknowledged by Cloud)\`, "sensor");
+        log("SENSOR", \`RX <- Acknowledged! Door is now \${state.toUpperCase()} (\${doorStatus.toUpperCase()}) | Cloud DB Updated ✅\`, "sensor");
       } catch (e) {
-        log("ERROR", \`Telemetry post error: \${e.message}\`, "error");
+        log("ERROR", \`Telemetry post network error: \${e.message}\`, "error");
       }
     }
 
@@ -675,6 +792,7 @@ export const simulatorHtml = `<!DOCTYPE html>
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "X-Device-Id": id,
             ...(key ? { "X-Device-Key": key } : {})
           },
           body: JSON.stringify({ deviceId: id })
@@ -687,31 +805,76 @@ export const simulatorHtml = `<!DOCTYPE html>
       }
     }
 
-    // Manual User Triggers
-    function toggleDoor() {
+    // Manual Hardware Triggers
+    function simulateHardwareUnlock() {
+      if (!isPowered) {
+        log("POWER", "Cannot actuate solenoid: Device is powered OFF.", "error");
+        return;
+      }
+      log("ACTUATION", "⚡ Manual Hardware Unlock triggered (Solenoid 3.0s pulse)", "cmd");
+      energizeSolenoid();
+      setDoorState("open");
+    }
+
+    function simulateHardwareLock() {
+      if (!isPowered) {
+        log("POWER", "Cannot latch door: Device is powered OFF.", "error");
+        return;
+      }
+      log("ACTUATION", "🔒 Door pushed shut & latched. Engaging mechanical catch.", "sensor");
+      setDoorState("closed");
+    }
+
+    function toggleDoorHardware() {
       if (doorState === "closed") {
-        setDoorState("open");
-        log("MANUAL", "Manual: Door opened manually.", "sensor");
+        simulateHardwareUnlock();
       } else {
-        setDoorState("closed");
-        log("MANUAL", "Manual: Door closed manually.", "sensor");
+        simulateHardwareLock();
       }
     }
 
-    function closeAndLock() {
-      setDoorState("closed");
-      log("MANUAL", "Manual Push-to-Lock: Door shut and locked.", "sensor");
-    }
+    // Aliases
+    function toggleDoor() { toggleDoorHardware(); }
+    function closeAndLock() { simulateHardwareLock(); }
+
+    // Expose handlers explicitly on window for inline HTML onclick attributes
+    window.simulateHardwareLock = simulateHardwareLock;
+    window.simulateHardwareUnlock = simulateHardwareUnlock;
+    window.toggleDoorHardware = toggleDoorHardware;
+    window.toggleDoor = toggleDoor;
+    window.closeAndLock = closeAndLock;
+    window.triggerTestUnlock = triggerTestUnlock;
+    window.togglePower = togglePower;
+    window.clearLogs = clearLogs;
 
     async function triggerTestUnlock() {
+      if (!isPowered) {
+        log("POWER", "Cannot trigger unlock: Device is powered OFF.", "error");
+        return;
+      }
       const id = getDeviceId();
-      log("USER", \`Enqueuing simulated unlock for \${id} (POST /api/test/unlock)... \`, "cmd");
+      const adminToken = getAdminToken();
+      log("USER", \`Enqueuing cloud remote unlock for \${id} (POST /api/test/unlock)... \`, "cmd");
+      
       try {
+        const headers = { "Content-Type": "application/json" };
+        if (adminToken) {
+          headers["Authorization"] = "Bearer " + adminToken;
+        }
+
         const res = await fetch(\`\${API_BASE}/test/unlock\`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({ deviceId: id })
         });
+
+        if (!res.ok) {
+          let detail = "";
+          try { detail = ": " + JSON.stringify(await res.json()); } catch (e) {}
+          log("ERROR", \`Failed to trigger test unlock: HTTP \${res.status}\${detail}.\`, "error");
+          return;
+        }
+
         const data = await res.json();
         log("USER", \`Unlock command queued successfully (CmdID: \${data.commandId}). Next poll will pick it up!\`, "cmd");
       } catch (err) {
@@ -747,8 +910,39 @@ export const simulatorHtml = `<!DOCTYPE html>
       document.getElementById("consoleLogs").innerHTML = "";
     }
 
-    // Start on page load
+    // Start on page load and attach CSP-safe listeners
     window.addEventListener("DOMContentLoaded", () => {
+      // Programmatic listeners ensure CSP never blocks click events
+      const btnLock = document.getElementById("btnLock");
+      if (btnLock) btnLock.addEventListener("click", () => simulateHardwareLock());
+
+      const btnUnlock = document.getElementById("btnUnlock");
+      if (btnUnlock) btnUnlock.addEventListener("click", () => simulateHardwareUnlock());
+
+      const btnCloudUnlock = document.getElementById("btnCloudUnlock");
+      if (btnCloudUnlock) btnCloudUnlock.addEventListener("click", () => triggerTestUnlock());
+
+      const lockerDoor = document.getElementById("lockerDoor");
+      if (lockerDoor) lockerDoor.addEventListener("click", () => toggleDoorHardware());
+
+      const powerBtn = document.getElementById("powerBtn");
+      if (powerBtn) powerBtn.addEventListener("click", () => togglePower());
+
+      const deviceIdInput = document.getElementById("deviceIdInput");
+      if (deviceIdInput) {
+        deviceIdInput.addEventListener("input", () => onDeviceIdInput());
+        deviceIdInput.addEventListener("change", () => onDeviceIdChange());
+      }
+
+      const deviceKeyInput = document.getElementById("deviceKeyInput");
+      if (deviceKeyInput) deviceKeyInput.addEventListener("change", () => onDeviceKeyChange());
+
+      const adminTokenInput = document.getElementById("adminTokenInput");
+      if (adminTokenInput) adminTokenInput.addEventListener("change", () => onAdminTokenChange());
+
+      const clearLogsBtn = document.getElementById("clearLogsBtn");
+      if (clearLogsBtn) clearLogsBtn.addEventListener("click", () => clearLogs());
+
       boot();
     });
   </script>

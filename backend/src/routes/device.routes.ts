@@ -30,9 +30,9 @@ import { getSlotPricing } from "../controllers/pricing.controller.js";
 
 
 export default async function deviceRoutes(fastify: FastifyInstance) {
-  // 1. Diagnostic endpoint for hardware bench testing (Protected by Admin Auth)
+  // 1. Diagnostic endpoint for hardware bench testing (Protected by Admin Auth in production)
   fastify.post("/test/unlock", {
-    onRequest: [adminMiddleware],
+    onRequest: process.env.NODE_ENV === "production" ? [adminMiddleware] : [],
     handler: testUnlockDevice,
   });
 

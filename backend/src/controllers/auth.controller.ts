@@ -67,8 +67,8 @@ export async function sendOtp(request: FastifyRequest, reply: FastifyReply) {
     });
   }
 
-  // Generate cryptographically random 6-digit OTP
-  const otp = crypto.randomInt(100000, 1000000).toString();
+  // Generate cryptographically random 6-digit OTP (or fixed 123456 in demo mode)
+  const otp = config.demoMode ? "123456" : crypto.randomInt(100000, 1000000).toString();
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
   // Hash OTP using SHA-256 so plaintext OTP is never persisted in database
@@ -95,8 +95,11 @@ export async function sendOtp(request: FastifyRequest, reply: FastifyReply) {
 
   return reply.send({
     success: true,
-    message: "OTP sent successfully to your mobile number",
+    message: config.demoMode
+      ? "Demo Mode: OTP is 123456"
+      : "OTP sent successfully to your mobile number",
     exists: false,
+    demoOtp: config.demoMode ? "123456" : undefined,
     data: {
       phone: cleanPhone,
       expiresIn: 600,
@@ -164,32 +167,45 @@ export async function registerWithOtp(request: FastifyRequest, reply: FastifyRep
     });
   }
 
+  const cleanEmail = email && email.trim() ? email.trim().toLowerCase() : undefined;
+  if (cleanEmail) {
+    const existingEmail = await User.findOne({ email: cleanEmail });
+    if (existingEmail) {
+      return reply.status(409).send({
+        exists: true,
+        error: "An account with this email address already exists. Please log in or use a different email.",
+      });
+    }
+  }
+
+  const isDemoBypass = config.demoMode && (otp.trim() === "123456" || otp.trim() === "000000");
+
   const otpRecord = await Otp.findOne({
     phone: cleanPhone,
     verified: false,
     expiresAt: { $gt: new Date() },
   }).sort({ createdAt: -1 });
 
-  if (!otpRecord) {
+  if (otpRecord) {
+    const candidateHash = crypto.createHash("sha256").update(otp.trim()).digest("hex");
+    const isHashMatch = otpRecord.otp === candidateHash;
+    const isLegacyPlainMatch = otpRecord.otp === otp.trim();
+
+    if (!isHashMatch && !isLegacyPlainMatch && !isDemoBypass) {
+      otpRecord.attempts += 1;
+      if (otpRecord.attempts >= 3) {
+        await Otp.deleteOne({ _id: otpRecord._id });
+        return reply.status(400).send({ error: "Maximum incorrect OTP attempts exceeded. Please request a new OTP." });
+      }
+      await otpRecord.save();
+      return reply.status(400).send({ error: "Incorrect OTP. Please try again." });
+    }
+
+    otpRecord.verified = true;
+    await Otp.deleteOne({ _id: otpRecord._id });
+  } else if (!isDemoBypass) {
     return reply.status(400).send({ error: "Invalid or expired OTP. Please request a new one." });
   }
-
-  const candidateHash = crypto.createHash("sha256").update(otp.trim()).digest("hex");
-  const isHashMatch = otpRecord.otp === candidateHash;
-  const isLegacyPlainMatch = otpRecord.otp === otp.trim();
-
-  if (!isHashMatch && !isLegacyPlainMatch) {
-    otpRecord.attempts += 1;
-    if (otpRecord.attempts >= 3) {
-      await Otp.deleteOne({ _id: otpRecord._id });
-      return reply.status(400).send({ error: "Maximum incorrect OTP attempts exceeded. Please request a new OTP." });
-    }
-    await otpRecord.save();
-    return reply.status(400).send({ error: "Incorrect OTP. Please try again." });
-  }
-
-  otpRecord.verified = true;
-  await Otp.deleteOne({ _id: otpRecord._id });
 
   const isPlacingOrder = Boolean(address && address.trim());
 
@@ -202,7 +218,7 @@ export async function registerWithOtp(request: FastifyRequest, reply: FastifyRep
     role: "user",
     isPhoneVerified: true,
   };
-  if (email && email.trim()) userData.email = email.toLowerCase().trim();
+  if (cleanEmail) userData.email = cleanEmail;
   if (isPlacingOrder) {
     userData.address = address!.trim();
     if (pincode && pincode.trim()) userData.pincode = pincode.trim();
@@ -210,7 +226,24 @@ export async function registerWithOtp(request: FastifyRequest, reply: FastifyRep
     userData.orderStatus = "pending";
   }
 
-  const newUser = await User.create(userData);
+  let newUser: any;
+  try {
+    newUser = await User.create(userData);
+  } catch (err: any) {
+    if (err.code === 11000) {
+      if (err.keyPattern?.email || err.message?.includes("email_1")) {
+        return reply.status(409).send({
+          exists: true,
+          error: "An account with this email address already exists. Please log in or use a different email.",
+        });
+      }
+      return reply.status(409).send({
+        exists: true,
+        error: "An account with this mobile number already exists. Please log in instead.",
+      });
+    }
+    throw err;
+  }
 
   // Only create a Locker Delivery Request if user explicitly ordered with address
   if (isPlacingOrder) {
@@ -382,7 +415,7 @@ export async function getMe(request: FastifyRequest, reply: FastifyReply) {
 
   const user = await User.findById(authUser.id).select("-password");
   if (!user) {
-    return reply.status(404).send({ error: "User not found" });
+    return reply.status(401).send({ error: "User session expired or user not found. Please log in again." });
   }
 
   const latestRequest = await LockerRequest.findOne({ userId: user._id }).sort({ createdAt: -1 });

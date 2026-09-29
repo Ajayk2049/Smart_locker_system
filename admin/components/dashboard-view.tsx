@@ -60,7 +60,7 @@ export function DashboardView({
   const [rejectModalData, setRejectModalData] = useState<{ requestId: string; customerName: string } | null>(null);
   const [rejectionReasonInput, setRejectionReasonInput] = useState("");
 
-  const [simulatorModalData, setSimulatorModalData] = useState<{ deviceId: string; customerName: string } | null>(null);
+  const [simulatorModalData, setSimulatorModalData] = useState<{ deviceId: string; customerName: string; deviceKey?: string } | null>(null);
 
   // Feedback notifications
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -516,10 +516,11 @@ export function DashboardView({
               });
               setRejectionReasonInput("");
             }}
-            onSimulateDevice={(req, deviceId) => {
+            onSimulateDevice={(req, deviceId, deviceKey) => {
               setSimulatorModalData({
                 deviceId,
                 customerName: req.name,
+                deviceKey,
               });
             }}
             onShowKey={(customerName, deviceId, deviceKey) => {

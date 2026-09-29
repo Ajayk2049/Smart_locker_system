@@ -3,6 +3,24 @@ import helmet from "@fastify/helmet";
 import { FastifyInstance } from "fastify";
 
 export default fp(async (fastify: FastifyInstance) => {
+  const isProd = process.env.NODE_ENV === "production";
+  // Origins allowed to embed backend pages (e.g. /simulator iframed by Admin dashboard).
+  // NOTE: CSP omits ports on purpose — "http://localhost" matches ANY localhost port.
+  // Replace yourdomain.com with the real production frontend domains.
+  const frameAncestors = isProd
+    ? ["'self'", "https://yourdomain.com", "https://*.yourdomain.com"]
+    : [
+        "'self'",
+        "http://localhost:*",
+        "http://127.0.0.1:*",
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "http://127.0.0.1:3002",
+      ];
+
   await fastify.register(helmet, {
     // Enable HSTS (Strict-Transport-Security) for 1 year including subdomains
     hsts: {
@@ -10,10 +28,9 @@ export default fp(async (fastify: FastifyInstance) => {
       includeSubDomains: true,
       preload: true,
     },
-    // Prevent clickjacking via frame embedding
-    frameguard: {
-      action: "deny",
-    },
+    // Clickjacking: CSP frame-ancestors (allowlist above) replaces X-Frame-Options,
+    // because "DENY"/"SAMEORIGIN" would block the Admin dashboard iframe in any case.
+    frameguard: false,
     // Protect against MIME-type sniffing
     noSniff: true,
     // Protect against XSS
@@ -23,10 +40,13 @@ export default fp(async (fastify: FastifyInstance) => {
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrcElem: ["'self'", "'unsafe-inline'"],
+        scriptSrcAttr: ["'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
         imgSrc: ["'self'", "data:", "blob:"],
         connectSrc: ["'self'", "ws:", "wss:", "http:", "https:"],
+        frameAncestors: frameAncestors,
         upgradeInsecureRequests: process.env.NODE_ENV === "production" ? [] : null,
       },
     },

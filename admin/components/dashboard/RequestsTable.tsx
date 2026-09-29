@@ -65,7 +65,7 @@ interface RequestsTableProps {
   onOpenDispatch: (item: LockerRequestItem) => void;
   onOpenDeliver: (item: LockerRequestItem) => void;
   onOpenReject: (item: LockerRequestItem) => void;
-  onSimulateDevice: (item: LockerRequestItem, deviceId: string) => void;
+  onSimulateDevice: (item: LockerRequestItem, deviceId: string, deviceKey?: string) => void;
   onShowKey?: (customerName: string, deviceId: string, deviceKey: string) => void;
 }
 
@@ -121,6 +121,8 @@ export function RequestsTable({
               requests.map((req) => {
                 const normStatus = req.status === "approved" ? "preparing" : req.status;
                 const targetDeviceId = req.assignedDeviceIds?.[0] || null;
+                const targetDeviceKey =
+                  req.assignedDevicesInfo?.find((d) => d.deviceId === targetDeviceId)?.deviceKey || undefined;
 
                 return (
                   <tr
@@ -245,7 +247,7 @@ export function RequestsTable({
                           {targetDeviceId && (
                             <button
                               type="button"
-                              onClick={() => onSimulateDevice(req, targetDeviceId)}
+                              onClick={() => onSimulateDevice(req, targetDeviceId, targetDeviceKey)}
                               title={`Launch hardware simulator for ${targetDeviceId}`}
                               className="h-10 px-3 inline-flex items-center justify-center gap-1.5 rounded-none font-mono text-xs font-black uppercase tracking-wider bg-slate-900 dark:bg-black text-[#00F5A0] hover:bg-[#00F5A0] hover:text-black border border-[#00F5A0]/60 dark:border-[#00F5A0]/40 transition-colors shadow-none cursor-pointer whitespace-nowrap shrink-0"
                             >
@@ -323,7 +325,7 @@ export function RequestsTable({
                           {targetDeviceId && (
                             <button
                               type="button"
-                              onClick={() => onSimulateDevice(req, targetDeviceId)}
+                              onClick={() => onSimulateDevice(req, targetDeviceId, targetDeviceKey)}
                               title={`Launch hardware simulator for ${targetDeviceId}`}
                               className="h-10 px-3.5 inline-flex items-center justify-center gap-1.5 rounded-none font-mono text-xs font-black uppercase tracking-wider bg-slate-900 dark:bg-black text-[#00F5A0] hover:bg-[#00F5A0] hover:text-black border border-[#00F5A0]/60 dark:border-[#00F5A0]/40 transition-colors shadow-none cursor-pointer whitespace-nowrap shrink-0"
                             >
