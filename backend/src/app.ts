@@ -5,6 +5,7 @@ import { checkDeviceWatchdog } from "./controllers/deviceIot.controller.js";
 import { wsService } from "./services/websocket.service.js";
 import { User } from "./models/User.model.js";
 import { loggerConfig, loggerStream, isSilentTerminalPath, logFilePath, pruneLogsOlderThan24Hours } from "./logger.js";
+import { AppError, ValidationError } from "./errors/AppError.js";
 
 import jwtPlugin from "./plugins/jwt.plugin.js";
 import corsPlugin from "./plugins/cors.plugin.js";
@@ -29,15 +30,15 @@ const fastify = Fastify({
 // Custom clean request and error hooks
 fastify.addHook("onRequest", async (request) => {
   if (isSilentTerminalPath(request.url, request.method)) return;
-  request.log.info(`➡️  ${request.method} ${request.url}`);
+  request.log.info(`--> ${request.method} ${request.url}`);
 });
 
 fastify.addHook("onResponse", async (request, reply) => {
   if (isSilentTerminalPath(request.url, request.method)) return;
   const ms = reply.elapsedTime.toFixed(1);
   const status = reply.statusCode;
-  const statusEmoji = status >= 500 ? "💥" : status >= 400 ? "⚠️" : "✅";
-  request.log.info(`${statusEmoji} ${request.method} ${request.url} ${status} (${ms}ms)`);
+  const statusTag = status >= 500 ? "[ERR]" : status >= 400 ? "[WARN]" : "[OK]";
+  request.log.info(`${statusTag} ${request.method} ${request.url} ${status} (${ms}ms)`);
 });
 
 function redactSensitiveData(data: any): any {
@@ -76,8 +77,41 @@ fastify.addHook("onError", async (request, reply, error) => {
       method: request.method,
       body: redactSensitiveData(request.body),
     },
-    `❌ Error handling ${request.method} ${request.url}: ${error.message}`
+    `[ERROR] Error handling ${request.method} ${request.url}: ${error.message}`
   );
+});
+
+// Global Error Handler (Rules.md Section 22.13: Never leak internal DB error or stack trace to client)
+fastify.setErrorHandler((error: any, request, reply) => {
+  if (error instanceof AppError) {
+    return reply.status(error.statusCode).send({
+      error: error.message,
+      code: error.code,
+      ...(error instanceof ValidationError ? { fieldErrors: error.fieldErrors } : {}),
+    });
+  }
+
+  // Handle Fastify schema validation errors
+  if (error.validation) {
+    return reply.status(400).send({
+      error: error.message,
+      code: "VALIDATION_ERROR",
+    });
+  }
+
+  // Client 4xx errors
+  const statusCode = error.statusCode && error.statusCode >= 400 && error.statusCode < 500 ? error.statusCode : 500;
+  if (statusCode < 500) {
+    return reply.status(statusCode).send({
+      error: error.message || "Bad Request",
+    });
+  }
+
+  // Generic sanitized 500 response to prevent internal leaks
+  return reply.status(500).send({
+    error: "Internal Server Error. Please try again later.",
+    code: "INTERNAL_SERVER_ERROR",
+  });
 });
 
 async function bootstrap() {
@@ -173,8 +207,10 @@ async function bootstrap() {
     });
   });
 
+  // Mongoose Security Hardening (Rules.md Section 22.5)
+  mongoose.set("strictQuery", true);
   await mongoose.connect(config.mongodbUri);
-  fastify.log.info("✅ MongoDB connected");
+  fastify.log.info("[OK] MongoDB connected");
 
   // Sync MongoDB indexes (drop legacy non-sparse email index if present)
   await User.collection.dropIndex("email_1").catch(() => {});
@@ -189,14 +225,14 @@ async function bootstrap() {
       fastify.log.error(err, "Failed to prune logs older than 24 hours");
     });
   }, 60 * 60 * 1000);
-  fastify.log.info("🧹 24-hour log cleanup worker active (1h cycle)");
+  fastify.log.info("[CLEANUP] 24-hour log cleanup worker active (1h cycle)");
 
   await fastify.listen({ port: config.port, host: "0.0.0.0" });
-  fastify.log.info(`🚀 Server running on port ${config.port}`);
-  fastify.log.info(`📝 Persistent log file active at: ${logFilePath}`);
+  fastify.log.info(`[READY] Server running on port ${config.port}`);
+  fastify.log.info(`[LOGS] Persistent log file active at: ${logFilePath}`);
 }
 
 bootstrap().catch((err) => {
-  console.error("❌ Failed to start server:", err);
+  console.error("[ERROR] Failed to start server:", err);
   process.exit(1);
 });

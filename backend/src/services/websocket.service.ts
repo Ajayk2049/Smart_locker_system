@@ -13,12 +13,12 @@ class WebSocketService {
 
   addClient(clientId: string, ws: WebSocket, userId: string, role = "user"): void {
     this.clients.set(clientId, { ws, userId, role, rooms: new Set() });
-    console.log(`🔌 WebSocket client connected: ${clientId} (user: ${userId}, role: ${role})`);
+    console.log(`[WS] Client connected: ${clientId} (user: ${userId}, role: ${role})`);
   }
 
   removeClient(clientId: string): void {
     this.clients.delete(clientId);
-    console.log(`🔌 WebSocket client disconnected: ${clientId}`);
+    console.log(`[WS] Client disconnected: ${clientId}`);
   }
 
   async joinRoom(clientId: string, deviceId: string): Promise<boolean> {
@@ -30,7 +30,7 @@ class WebSocketService {
     // Admins have access to monitor all devices
     if (client.role === "admin") {
       client.rooms.add(clean);
-      console.log(`📥 Admin ${clientId} joined room: ${clean}`);
+      console.log(`[WS] Admin ${clientId} joined room: ${clean}`);
       return true;
     }
 
@@ -51,7 +51,7 @@ class WebSocketService {
       }
 
       client.rooms.add(clean);
-      console.log(`📥 Authorized user ${client.userId} joined room: ${clean}`);
+      console.log(`[WS] Authorized user ${client.userId} joined room: ${clean}`);
       return true;
     } catch (err) {
       console.error(`Error verifying device ownership for room ${clean}:`, err);

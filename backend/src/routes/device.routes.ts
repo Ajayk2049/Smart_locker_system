@@ -1,6 +1,15 @@
 import { FastifyInstance } from "fastify";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 import { adminMiddleware } from "../middlewares/admin.middleware.js";
+import { validateBody } from "../middlewares/validate.middleware.js";
+import {
+  addCoOwnerSchema,
+  joinDeviceSchema,
+  renameCoOwnerSchema,
+  requestSlotUpgradeSchema,
+  deviceTelemetrySchema,
+  deviceHeartbeatSchema,
+} from "../schemas/device.schemas.js";
 import {
   getDevices,
   createDevice,
@@ -27,8 +36,6 @@ import {
 } from "../controllers/deviceSlot.controller.js";
 import { getSlotPricing } from "../controllers/pricing.controller.js";
 
-
-
 export default async function deviceRoutes(fastify: FastifyInstance) {
   // 1. Diagnostic endpoint for hardware bench testing (Protected by Admin Auth in production)
   fastify.post("/test/unlock", {
@@ -47,10 +54,12 @@ export default async function deviceRoutes(fastify: FastifyInstance) {
   });
 
   fastify.post("/device/telemetry", {
+    preHandler: [validateBody(deviceTelemetrySchema)],
     handler: receiveTelemetry,
   });
 
   fastify.post("/device/heartbeat", {
+    preHandler: [validateBody(deviceHeartbeatSchema)],
     handler: receiveHeartbeat,
   });
 
@@ -85,9 +94,9 @@ export default async function deviceRoutes(fastify: FastifyInstance) {
       handler: updateDeviceName,
     });
 
-
     // Multi-user slot & invite management
     authScope.post("/devices/:id/co-owners", {
+      preHandler: [validateBody(addCoOwnerSchema)],
       handler: addCoOwner,
     });
 
@@ -96,6 +105,7 @@ export default async function deviceRoutes(fastify: FastifyInstance) {
     });
 
     authScope.patch("/devices/:id/co-owners/:userId", {
+      preHandler: [validateBody(renameCoOwnerSchema)],
       handler: renameCoOwner,
     });
 
@@ -104,9 +114,9 @@ export default async function deviceRoutes(fastify: FastifyInstance) {
     });
 
     authScope.post("/devices/:id/slots/upgrade", {
+      preHandler: [validateBody(requestSlotUpgradeSchema)],
       handler: requestSlotUpgrade,
     });
-
 
     // Join Code system
     authScope.post("/devices/:id/invite", {
@@ -130,6 +140,7 @@ export default async function deviceRoutes(fastify: FastifyInstance) {
           timeWindow: "1 minute",
         },
       },
+      preHandler: [validateBody(joinDeviceSchema)],
       handler: joinDevice,
     });
   });
