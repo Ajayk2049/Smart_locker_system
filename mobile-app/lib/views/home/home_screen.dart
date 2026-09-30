@@ -5,6 +5,7 @@ import '../../view_models/auth_view_model.dart';
 import '../../view_models/home_view_model.dart';
 import '../settings/settings_screen.dart';
 import '../widgets/add_locker_dialog.dart';
+import '../widgets/connection_warning_card.dart';
 import '../widgets/glass_theme.dart';
 import 'widgets/co_owner_invite_sheet.dart';
 import 'widgets/home_bottom_nav.dart';
@@ -33,6 +34,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showAddLocker(BuildContext context) {
+    if (context.read<HomeViewModel>().isOffline) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Cannot link lockers while offline. Please restore connection.'),
+          backgroundColor: ParcelGlassColors.alertRed,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.only(bottom: 100, left: 20, right: 20),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+      );
+      return;
+    }
     AddLockerDialog.show(context);
   }
 
@@ -41,6 +54,23 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _handleUnlock(DeviceModel device) async {
+    final homeVM = context.read<HomeViewModel>();
+    if (homeVM.isOffline || homeVM.isCheckingReachability) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            homeVM.isCheckingReachability
+                ? 'Connecting to server. Please wait a moment...'
+                : 'Unlock unavailable: Server is currently offline or unreachable.',
+          ),
+          backgroundColor: ParcelGlassColors.alertRed,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.only(bottom: 100, left: 20, right: 20),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+      );
+      return;
+    }
     setState(() => _unlockingDeviceId = device.deviceId);
     try {
       await context.read<HomeViewModel>().unlockDevice(device.deviceId);
@@ -147,13 +177,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  HomeUserGreeting(
-                    userName: userName,
-                    showAddButton: false,
-                    onAddLocker: () => _showAddLocker(context),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      HomeUserGreeting(
+                        userName: userName,
+                        showAddButton: false,
+                        isOffline: homeVM.isOffline,
+                        onAddLocker: () => _showAddLocker(context),
+                      ),
+                      if (homeVM.isOffline) ...[
+                        const SizedBox(height: 16),
+                        ConnectionWarningCard(issue: homeVM.connectionIssue),
+                      ],
+                    ],
                   ),
                   HomeEmptyState(
                     loading: homeVM.loading,
+                    isOffline: homeVM.isOffline,
                     onAddLocker: () => _showAddLocker(context),
                   ),
                   const SizedBox(height: 10),
@@ -177,13 +218,19 @@ class _HomeScreenState extends State<HomeScreen> {
               HomeUserGreeting(
                 userName: userName,
                 showAddButton: true,
+                isOffline: homeVM.isOffline,
                 onAddLocker: () => _showAddLocker(context),
               ),
               const SizedBox(height: 16),
+              if (homeVM.isOffline) ...[
+                ConnectionWarningCard(issue: homeVM.connectionIssue),
+              ],
               for (final device in devices) ...[
                 LockerHeroCard(
                   device: device,
                   isUnlocking: _unlockingDeviceId == device.deviceId || _unlockingDeviceId == device.id,
+                  isOffline: homeVM.isOffline,
+                  isChecking: homeVM.isCheckingReachability,
                   onUnlock: () => _handleUnlock(device),
                   onInviteCoOwner: () => _showInviteSheet(context, device.deviceId, device.name),
                 ),

@@ -10,8 +10,8 @@ class ApiService {
   Dio get _client {
     return Dio(BaseOptions(
       baseUrl: AppConfig.baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
+      connectTimeout: const Duration(seconds: 3),
+      receiveTimeout: const Duration(seconds: 4),
     ));
   }
 
@@ -21,8 +21,8 @@ class ApiService {
     final token = await _storage.getToken();
     final dio = Dio(BaseOptions(
       baseUrl: AppConfig.baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
+      connectTimeout: const Duration(seconds: 3),
+      receiveTimeout: const Duration(seconds: 4),
       headers: {
         if (token != null) 'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
@@ -77,14 +77,16 @@ class ApiService {
     return dio;
   }
 
-  // 0. Quick local Wi-Fi connection check
-  Future<bool> checkHealth([String? host]) async {
+  // 0. Quick local Wi-Fi connection check with snappy timeout
+  Future<bool> checkHealth([String? host, Duration timeout = const Duration(milliseconds: 1500)]) async {
     final targetUrl = host != null
         ? 'http://${host.replaceAll('http://', '').replaceAll('/', '')}/api/health'
         : '${AppConfig.baseUrl}/api/health';
     try {
-      final res = await Dio(BaseOptions(connectTimeout: const Duration(seconds: 4)))
-          .get(targetUrl);
+      final res = await Dio(BaseOptions(
+        connectTimeout: timeout,
+        receiveTimeout: timeout,
+      )).get(targetUrl);
       return res.statusCode == 200;
     } catch (_) {
       return false;

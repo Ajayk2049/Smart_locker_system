@@ -16,21 +16,41 @@ class WebSocketService {
   final StreamController<Map<String, dynamic>> _controller =
       StreamController<Map<String, dynamic>>.broadcast();
 
+  bool _isConnected = false;
+  bool _isConnecting = false;
+  Timer? _reconnectTimer;
+
   Stream<Map<String, dynamic>> get stream => _controller.stream;
+  bool get isConnected => _isConnected;
 
   Future<void> connect() async {
+    if (_isConnected || _isConnecting) return;
+    _isConnecting = true;
+    _reconnectTimer?.cancel();
+
     try {
       final token = await _storage.getToken();
       if (token == null || token.isEmpty) {
         debugPrint('WebSocket: No auth token found. Skipping connection.');
+        _isConnecting = false;
         return;
       }
 
-      final uri = Uri.parse('${AppConfig.wsUrl}?token=$token');
-      _channel = WebSocketChannel.connect(uri);
+      // Safely close previous channel before creating a new one
+      try {
+        _channel?.sink.close();
+      } catch (_) {}
 
-      _channel!.stream.listen(
+      final uri = Uri.parse('${AppConfig.wsUrl}?token=$token');
+      final channel = WebSocketChannel.connect(uri);
+      _channel = channel;
+
+      channel.stream.listen(
         (data) {
+          if (!_isConnected) {
+            _isConnected = true;
+            _isConnecting = false;
+          }
           try {
             final message = jsonDecode(data.toString());
             _controller.add(Map<String, dynamic>.from(message));
@@ -38,12 +58,16 @@ class WebSocketService {
         },
         onError: (error) {
           debugPrint('WebSocket error: $error');
-          _reconnect();
+          _handleDisconnect();
         },
         onDone: () {
-          _reconnect();
+          _handleDisconnect();
         },
+        cancelOnError: true,
       );
+
+      _isConnected = true;
+      _isConnecting = false;
 
       // Re-join existing rooms upon connection
       for (final room in _joinedRooms) {
@@ -54,12 +78,19 @@ class WebSocketService {
       }
     } catch (e) {
       debugPrint('WebSocket connect exception: $e');
-      _reconnect();
+      _handleDisconnect();
     }
   }
 
-  void _reconnect() {
-    Future.delayed(const Duration(seconds: 3), () {
+  void _handleDisconnect() {
+    _isConnected = false;
+    _isConnecting = false;
+    _scheduleReconnect();
+  }
+
+  void _scheduleReconnect() {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(const Duration(seconds: 5), () {
       connect();
     });
   }
@@ -68,16 +99,24 @@ class WebSocketService {
     if (deviceId.trim().isEmpty) return;
     final clean = deviceId.trim();
     _joinedRooms.add(clean);
-    try {
-      _channel?.sink.add(jsonEncode({
-        'type': 'JOIN_ROOM',
-        'deviceId': clean,
-      }));
-    } catch (_) {}
+    if (_isConnected && _channel != null) {
+      try {
+        _channel?.sink.add(jsonEncode({
+          'type': 'JOIN_ROOM',
+          'deviceId': clean,
+        }));
+      } catch (_) {}
+    }
   }
 
   void disconnect() {
-    _channel?.sink.close();
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _isConnected = false;
+    _isConnecting = false;
+    try {
+      _channel?.sink.close();
+    } catch (_) {}
     _channel = null;
   }
 
