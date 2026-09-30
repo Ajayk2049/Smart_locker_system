@@ -9,6 +9,7 @@ class HomeViewModel extends ChangeNotifier {
   final ApiService _api = ApiService();
   final WebSocketService _ws = WebSocketService();
   Timer? _pollTimer;
+  final Map<String, DateTime> _recentlyUnlockedUntil = {};
 
   List<DeviceModel> _devices = [];
   List<LogModel> _logs = [];
@@ -57,17 +58,25 @@ class HomeViewModel extends ChangeNotifier {
         type == 'DOOR_OPEN' ||
         type == 'EMERGENCY_UNLOCK' ||
         type == 'DELIVERY_SUCCESS' ||
+        type == 'UNLOCK_COMMAND' ||
         type == 'DEVICE_ONLINE' ||
         type == 'DEVICE_OFFLINE') {
       final targetDeviceId = message['deviceId']?.toString();
-      final newDoorState = message['doorState']?.toString();
+      String? newDoorState = message['doorState']?.toString();
+      if (type == 'DOOR_OPEN' || type == 'EMERGENCY_UNLOCK' || type == 'UNLOCK_COMMAND') {
+        newDoorState ??= 'open';
+      }
       bool? isOnline = message['online'] as bool?;
       if (type == 'DEVICE_ONLINE') isOnline = true;
       if (type == 'DEVICE_OFFLINE') isOnline = false;
 
       if (targetDeviceId != null) {
-        bool updated = false;
         final targetUpper = targetDeviceId.trim().toUpperCase();
+        if (newDoorState == 'closed') {
+          _recentlyUnlockedUntil.remove(targetUpper);
+        }
+
+        bool updated = false;
         for (int i = 0; i < _devices.length; i++) {
           if (_devices[i].id.trim().toUpperCase() == targetUpper ||
               _devices[i].deviceId.trim().toUpperCase() == targetUpper) {
@@ -95,6 +104,19 @@ class HomeViewModel extends ChangeNotifier {
       final newDevices = devicesData
           .map((json) => DeviceModel.fromJson(json))
           .toList();
+
+      final now = DateTime.now();
+      for (int i = 0; i < newDevices.length; i++) {
+        final dev = newDevices[i];
+        final until = _recentlyUnlockedUntil[dev.deviceId.trim().toUpperCase()] ??
+            _recentlyUnlockedUntil[dev.id.trim().toUpperCase()];
+        if (until != null && now.isBefore(until)) {
+          newDevices[i] = dev.copyWith(
+            doorState: 'open',
+            online: true,
+          );
+        }
+      }
 
       bool hasChange = false;
       if (newDevices.length != _devices.length) {
@@ -134,6 +156,19 @@ class HomeViewModel extends ChangeNotifier {
           .map((json) => DeviceModel.fromJson(json))
           .toList();
 
+      final now = DateTime.now();
+      for (int i = 0; i < _devices.length; i++) {
+        final dev = _devices[i];
+        final until = _recentlyUnlockedUntil[dev.deviceId.trim().toUpperCase()] ??
+            _recentlyUnlockedUntil[dev.id.trim().toUpperCase()];
+        if (until != null && now.isBefore(until)) {
+          _devices[i] = dev.copyWith(
+            doorState: 'open',
+            online: true,
+          );
+        }
+      }
+
       // Subscribe to WebSocket rooms for real-time status updates
       for (final d in _devices) {
         _ws.joinRoom(d.id);
@@ -156,10 +191,13 @@ class HomeViewModel extends ChangeNotifier {
 
   Future<void> unlockDevice(String deviceId) async {
     _error = null;
+    final targetUpper = deviceId.trim().toUpperCase();
+    _recentlyUnlockedUntil[targetUpper] = DateTime.now().add(const Duration(seconds: 10));
 
-    // Optimistically show door opening in UI
+    // Optimistically show door opening in UI for ONLY this device
     for (int i = 0; i < _devices.length; i++) {
-      if (_devices[i].id == deviceId || _devices[i].deviceId == deviceId) {
+      if (_devices[i].id.trim().toUpperCase() == targetUpper ||
+          _devices[i].deviceId.trim().toUpperCase() == targetUpper) {
         _devices[i] = _devices[i].copyWith(
           doorState: 'open',
           online: true,
@@ -172,11 +210,12 @@ class HomeViewModel extends ChangeNotifier {
       await _api.unlockDevice(deviceId);
       // Auto-sync devices and activity history logs
       Future.delayed(const Duration(milliseconds: 600), () => fetchDeviceLogs(deviceId));
-      Future.delayed(const Duration(milliseconds: 1500), () => fetchDevices());
-      Future.delayed(const Duration(seconds: 4), () => fetchDevices());
+      Future.delayed(const Duration(milliseconds: 1500), () => _fetchDevicesSilent());
+      Future.delayed(const Duration(seconds: 4), () => _fetchDevicesSilent());
     } catch (e) {
+      _recentlyUnlockedUntil.remove(targetUpper);
       _error = e.toString();
-      fetchDevices(); // revert on failure
+      _fetchDevicesSilent(); // revert on failure
     }
   }
 

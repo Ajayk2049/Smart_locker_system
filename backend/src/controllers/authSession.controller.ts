@@ -94,6 +94,20 @@ export async function login(request: FastifyRequest, reply: FastifyReply) {
 
   const refreshToken = await TokenService.createRefreshToken(user._id);
 
+  const userRequests = await LockerRequest.find({ userId: user._id, status: { $ne: "rejected" } });
+  const totalUnits = userRequests.reduce((sum, r) => sum + (r.units || 1), 0);
+  const resolvedUnits = Math.max(
+    totalUnits,
+    user.assignedDevices ? user.assignedDevices.length : 0,
+    user.units || 1
+  );
+  if (user.units !== resolvedUnits) {
+    user.units = resolvedUnits;
+    await user.save();
+  }
+
+  const latestRequest = await LockerRequest.findOne({ userId: user._id }).sort({ createdAt: -1 });
+
   return reply.send({
     success: true,
     user: {
@@ -104,9 +118,9 @@ export async function login(request: FastifyRequest, reply: FastifyReply) {
       role: user.role,
       address: user.address,
       pincode: user.pincode,
-      units: user.units || 1,
-      orderStatus: user.orderStatus || "pending",
-      assignedDevices: user.assignedDevices || [],
+      units: resolvedUnits,
+      orderStatus: latestRequest?.status || user.orderStatus,
+      assignedDevices: latestRequest?.assignedDeviceIds || user.assignedDevices || [],
     },
     token,
     refreshToken,
@@ -125,6 +139,18 @@ export async function getMe(request: FastifyRequest, reply: FastifyReply) {
     return reply.status(401).send({ error: "User session expired or user not found. Please log in again." });
   }
 
+  const userRequests = await LockerRequest.find({ userId: user._id, status: { $ne: "rejected" } });
+  const totalUnits = userRequests.reduce((sum, r) => sum + (r.units || 1), 0);
+  const resolvedUnits = Math.max(
+    totalUnits,
+    user.assignedDevices ? user.assignedDevices.length : 0,
+    user.units || 1
+  );
+  if (user.units !== resolvedUnits) {
+    user.units = resolvedUnits;
+    await user.save();
+  }
+
   const latestRequest = await LockerRequest.findOne({ userId: user._id }).sort({ createdAt: -1 });
 
   return reply.send({
@@ -136,7 +162,7 @@ export async function getMe(request: FastifyRequest, reply: FastifyReply) {
       role: user.role,
       address: user.address,
       pincode: user.pincode,
-      units: latestRequest?.units || user.units,
+      units: resolvedUnits,
       orderStatus: latestRequest?.status || user.orderStatus,
       assignedDevices: latestRequest?.assignedDeviceIds || user.assignedDevices || [],
       requestDetails: latestRequest

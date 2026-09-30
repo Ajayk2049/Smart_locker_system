@@ -110,6 +110,10 @@ export async function unlockDevice(request: FastifyRequest, reply: FastifyReply)
 
   const enqueued = commandQueueService.enqueueCommand(device.deviceId, "unlock");
 
+  device.doorState = "open";
+  device.online = true;
+  await device.save();
+
   await Log.create({
     deviceId: device._id,
     action: "unlock",
@@ -124,13 +128,28 @@ export async function unlockDevice(request: FastifyRequest, reply: FastifyReply)
     },
   });
 
-  wsService.broadcastToDevice(device.deviceId, {
+  const unlockCommandMsg = {
     type: "UNLOCK_COMMAND",
     deviceId: device.deviceId,
     commandId: enqueued.commandId,
     unlockedBy: userName,
     userRole,
-  });
+  };
+  wsService.broadcastToDevice(device.deviceId, unlockCommandMsg);
+
+  const statusMsg = {
+    type: "DEVICE_STATUS",
+    deviceId: device.deviceId,
+    doorState: "open",
+    doorStatus: "unlocked",
+    online: true,
+  };
+  wsService.broadcastToDevice(device.deviceId, statusMsg);
+  wsService.broadcastToDevice(device._id.toString(), statusMsg);
+  if (device.ownerId) wsService.broadcastToDevice(device.ownerId.toString(), statusMsg);
+  if (Array.isArray(device.coOwners)) {
+    device.coOwners.forEach((cId) => wsService.broadcastToDevice(cId.toString(), statusMsg));
+  }
 
   return reply.send({
     success: true,

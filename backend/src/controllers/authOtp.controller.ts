@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from "fastify";
 import crypto from "crypto";
 import { User } from "../models/User.model.js";
 import { Otp } from "../models/Otp.model.js";
+import { LockerRequest } from "../models/LockerRequest.model.js";
 import { smsService } from "../services/sms.service.js";
 import { config } from "../config.js";
 import { createLockerOrderRequest, redeemInviteCodeOnSignup } from "../services/registration.service.js";
@@ -320,7 +321,10 @@ export async function placeOrder(request: FastifyRequest, reply: FastifyReply) {
 
   user.address = address.trim();
   if (cleanPincode) user.pincode = cleanPincode;
-  user.units = orderUnits;
+  const existingRequests = await LockerRequest.find({ userId: user._id, status: { $ne: "rejected" } });
+  const priorUnits = existingRequests.reduce((sum: number, r: any) => sum + (r.units || 1), 0);
+  const totalUnits = priorUnits + orderUnits;
+  user.units = totalUnits;
   user.orderStatus = "pending";
   await user.save();
 
@@ -331,7 +335,7 @@ export async function placeOrder(request: FastifyRequest, reply: FastifyReply) {
     email: user.email,
     address: user.address,
     pincode: user.pincode,
-    units: user.units,
+    units: orderUnits,
   });
 
   return reply.status(201).send({

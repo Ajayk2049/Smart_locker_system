@@ -6,6 +6,7 @@ import { LoginForm } from "./auth/LoginForm";
 import { RegisterWizard } from "./auth/RegisterWizard";
 import { OrderView } from "./auth/OrderView";
 import { DeliveryManifest, StoredUserData } from "./auth/DeliveryManifest";
+import { userFetch, clearStoredUserSession } from "@/lib/api";
 
 interface ProfileProps {
   mode?: "register" | "login";
@@ -59,49 +60,66 @@ export function Profile({ mode }: ProfileProps = {}) {
   };
 
   useEffect(() => {
+    let isMounted = true;
     try {
       const loggedIn = localStorage.getItem("smartbox_logged_in") === "true";
       const rawUser = localStorage.getItem("smartbox_user_data");
       const token = localStorage.getItem("smartbox_token");
+      const refreshToken = localStorage.getItem("smartbox_refresh_token");
 
       if (loggedIn) {
-        setIsLoggedIn(true);
         if (rawUser) {
           setCurrentUser(JSON.parse(rawUser));
         } else {
           const simpleName = localStorage.getItem("smartbox_user") || "Customer";
           setCurrentUser({ name: simpleName });
         }
+        setIsLoggedIn(true);
 
-        if (token) {
-          fetch(`${apiUrl}/auth/me`, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-            .then((res) => (res.ok ? res.json() : null))
-            .then((data) => {
-              if (data?.user) {
-                const refreshed: StoredUserData = {
-                  id: data.user.id,
-                  name: data.user.name,
-                  phone: data.user.phone,
-                  email: data.user.email,
-                  address: data.user.address,
-                  pincode: data.user.pincode,
-                  units: data.user.units,
-                  orderStatus: data.user.orderStatus,
-                  assignedDevices: data.user.assignedDevices || [],
-                };
-                setCurrentUser(refreshed);
-                localStorage.setItem("smartbox_user_data", JSON.stringify(refreshed));
+        if (token || refreshToken) {
+          userFetch("/auth/me")
+            .then(async (res) => {
+              if (!isMounted) return;
+              if (res.status === 401 || res.status === 403) {
+                clearStoredUserSession();
+                setIsLoggedIn(false);
+                setCurrentUser(null);
+                return;
+              }
+              if (res.ok) {
+                const data = await res.json();
+                if (data?.user) {
+                  const refreshed: StoredUserData = {
+                    id: data.user.id,
+                    name: data.user.name,
+                    phone: data.user.phone,
+                    email: data.user.email,
+                    address: data.user.address,
+                    pincode: data.user.pincode,
+                    units: data.user.units,
+                    orderStatus: data.user.orderStatus,
+                    assignedDevices: data.user.assignedDevices || [],
+                  };
+                  setCurrentUser(refreshed);
+                  localStorage.setItem("smartbox_user_data", JSON.stringify(refreshed));
+                }
               }
             })
             .catch(() => {});
+        } else {
+          clearStoredUserSession();
+          setIsLoggedIn(false);
+          setCurrentUser(null);
         }
       }
     } catch (e) {
       console.error("Failed to restore session", e);
     }
-  }, [apiUrl]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -278,17 +296,12 @@ export function Profile({ mode }: ProfileProps = {}) {
   const handleLogout = () => {
     const refreshToken = localStorage.getItem("smartbox_refresh_token");
     if (refreshToken) {
-      fetch(`${apiUrl}/auth/logout`, {
+      userFetch("/auth/logout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refreshToken }),
       }).catch(() => {});
     }
-    localStorage.removeItem("smartbox_logged_in");
-    localStorage.removeItem("smartbox_user");
-    localStorage.removeItem("smartbox_user_data");
-    localStorage.removeItem("smartbox_token");
-    localStorage.removeItem("smartbox_refresh_token");
+    clearStoredUserSession();
     setIsLoggedIn(false);
     setIsOrdering(false);
     setCurrentUser(null);

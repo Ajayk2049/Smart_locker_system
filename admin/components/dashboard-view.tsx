@@ -7,6 +7,7 @@ import { SlotRequestsTable, SlotRequestItem } from "./dashboard/SlotRequestsTabl
 import { DashboardHeader, MainDashboardTab, PendingSubFilter } from "./dashboard/DashboardHeader";
 import { DashboardModals } from "./dashboard/DashboardModals";
 import { SlotPricingData } from "./modals/PricingModal";
+import { adminFetch } from "@/lib/api";
 
 export type { LockerRequestStatus, LockerRequestItem };
 
@@ -66,8 +67,6 @@ export function DashboardView({
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
-
   const showNotification = (msg: string, isError = false) => {
     if (isError) {
       setActionError(msg);
@@ -88,11 +87,10 @@ export function DashboardView({
 
     try {
       // 1. Fetch Delivery Orders
-      const res = await fetch(`${apiUrl}/admin/requests`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await adminFetch("/admin/requests");
       if (res.status === 401 || res.status === 403) {
         localStorage.removeItem("admin_token");
+        localStorage.removeItem("admin_refresh_token");
         localStorage.removeItem("admin_user");
         if (onLogout) onLogout();
         return;
@@ -103,18 +101,14 @@ export function DashboardView({
       }
 
       // 2. Fetch Slot Upgrade Requests
-      const slotRes = await fetch(`${apiUrl}/admin/slot-requests`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const slotRes = await adminFetch("/admin/slot-requests");
       if (slotRes.ok) {
         const slotData = await slotRes.json();
         setSlotRequests(slotData.requests || []);
       }
 
       // 3. Fetch Slot Pricing
-      const priceRes = await fetch(`${apiUrl}/admin/pricing/slots`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const priceRes = await adminFetch("/admin/pricing/slots");
       if (priceRes.ok) {
         const pData = await priceRes.json();
         setSlotPricing({
@@ -131,7 +125,7 @@ export function DashboardView({
     } finally {
       if (!silent) setIsLoading(false);
     }
-  }, [apiUrl, onLogout]);
+  }, [onLogout]);
 
   useEffect(() => {
     loadRequests(false);
@@ -143,13 +137,8 @@ export function DashboardView({
 
   // Save new Slot Pricing
   const handleSavePricing = async (monthly: number, yearly: number) => {
-    const token = localStorage.getItem("admin_token");
-    const res = await fetch(`${apiUrl}/admin/pricing/slots`, {
+    const res = await adminFetch("/admin/pricing/slots", {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
       body: JSON.stringify({ monthlyPrice: monthly, yearlyPrice: yearly }),
     });
 
@@ -166,14 +155,9 @@ export function DashboardView({
 
   // Approve Slot Request (unlocks all 3 extra slots to 5 total)
   const handleApproveSlotRequest = async (item: SlotRequestItem) => {
-    const token = localStorage.getItem("admin_token");
     try {
-      const res = await fetch(`${apiUrl}/admin/slot-requests/${item._id}/approve`, {
+      const res = await adminFetch(`/admin/slot-requests/${item._id}/approve`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({ adminNotes: "Approved via Admin Dashboard after phone confirmation" }),
       });
 
@@ -189,14 +173,9 @@ export function DashboardView({
 
   // Reject Slot Request
   const handleRejectSlotRequest = async (item: SlotRequestItem) => {
-    const token = localStorage.getItem("admin_token");
     try {
-      const res = await fetch(`${apiUrl}/admin/slot-requests/${item._id}/reject`, {
+      const res = await adminFetch(`/admin/slot-requests/${item._id}/reject`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({ adminNotes: "Declined by operator" }),
       });
 
@@ -217,14 +196,9 @@ export function DashboardView({
     );
     if (!ok) return;
 
-    const token = localStorage.getItem("admin_token");
     try {
-      const res = await fetch(`${apiUrl}/admin/slot-requests/${item._id}/revoke`, {
+      const res = await adminFetch(`/admin/slot-requests/${item._id}/revoke`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({ adminNotes: "Revoked back to 2 slots by operator" }),
       });
 
@@ -257,14 +231,9 @@ export function DashboardView({
       return;
     }
 
-    const token = localStorage.getItem("admin_token");
     try {
-      const res = await fetch(`${apiUrl}/admin/requests/${prepareModalData.requestId}/status`, {
+      const res = await adminFetch(`/admin/requests/${prepareModalData.requestId}/status`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           status: "preparing",
           deviceId,
@@ -297,15 +266,10 @@ export function DashboardView({
 
   const handleConfirmDispatch = async () => {
     if (!dispatchModalData) return;
-    const token = localStorage.getItem("admin_token");
 
     try {
-      const res = await fetch(`${apiUrl}/admin/requests/${dispatchModalData.requestId}/status`, {
+      const res = await adminFetch(`/admin/requests/${dispatchModalData.requestId}/status`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           status: "dispatched",
           notes: dispatchNotesInput.trim(),
@@ -325,15 +289,10 @@ export function DashboardView({
 
   const handleConfirmDelivered = async () => {
     if (!deliverModalData) return;
-    const token = localStorage.getItem("admin_token");
 
     try {
-      const res = await fetch(`${apiUrl}/admin/requests/${deliverModalData.requestId}/status`, {
+      const res = await adminFetch(`/admin/requests/${deliverModalData.requestId}/status`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           status: "delivered",
           verificationNotes: callVerificationInput.trim(),
@@ -353,15 +312,10 @@ export function DashboardView({
 
   const handleConfirmReject = async () => {
     if (!rejectModalData) return;
-    const token = localStorage.getItem("admin_token");
 
     try {
-      const res = await fetch(`${apiUrl}/admin/requests/${rejectModalData.requestId}/status`, {
+      const res = await adminFetch(`/admin/requests/${rejectModalData.requestId}/status`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({
           status: "rejected",
           rejectionReason: rejectionReasonInput.trim() || "Declined by operator",

@@ -22,7 +22,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentTab = 0; // 0: Home, 1: History, 2: Settings
-  bool _isUnlocking = false;
+  String? _unlockingDeviceId;
 
   @override
   void initState() {
@@ -41,7 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _handleUnlock(DeviceModel device) async {
-    setState(() => _isUnlocking = true);
+    setState(() => _unlockingDeviceId = device.deviceId);
     try {
       await context.read<HomeViewModel>().unlockDevice(device.deviceId);
       if (mounted) {
@@ -76,7 +76,7 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _isUnlocking = false);
+      if (mounted) setState(() => _unlockingDeviceId = null);
     }
   }
 
@@ -183,7 +183,7 @@ class _HomeScreenState extends State<HomeScreen> {
               for (final device in devices) ...[
                 LockerHeroCard(
                   device: device,
-                  isUnlocking: _isUnlocking,
+                  isUnlocking: _unlockingDeviceId == device.deviceId || _unlockingDeviceId == device.id,
                   onUnlock: () => _handleUnlock(device),
                   onInviteCoOwner: () => _showInviteSheet(context, device.deviceId, device.name),
                 ),
