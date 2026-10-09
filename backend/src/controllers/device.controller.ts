@@ -24,12 +24,13 @@ export async function getDevices(request: FastifyRequest, reply: FastifyReply) {
     $or: [{ ownerId: user.id }, { coOwners: user.id }],
   })
     .populate("ownerId", "email name")
-    .populate("coOwners", "email name");
+    .populate("coOwners", "email name")
+    .lean();
 
   const userId = (user?.id || (user as any)?._id)?.toString().trim().toLowerCase();
 
   const mapped = devices.map((d: any) => {
-    const obj = d.toObject ? d.toObject() : { ...d };
+    const obj = { ...d };
     const ownerIdStr = (d.ownerId?._id || d.ownerId)?.toString().trim().toLowerCase();
     const isOwner = Boolean(userId && ownerIdStr && ownerIdStr === userId);
     return {

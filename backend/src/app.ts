@@ -194,6 +194,10 @@ async function bootstrap() {
     socket.on("message", async (message) => {
       try {
         const data = JSON.parse(message.toString());
+        if (data.type === "PING") {
+          socket.send(JSON.stringify({ type: "PONG" }));
+          return;
+        }
         if (data.type === "JOIN_ROOM" && data.deviceId) {
           await wsService.joinRoom(clientId, data.deviceId);
         }

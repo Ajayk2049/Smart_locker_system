@@ -6,6 +6,7 @@ enum ConnectionIssue {
   none,
   noInternet,
   serverUnreachable,
+  sessionExpired,
 }
 
 class ConnectivityService {

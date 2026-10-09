@@ -1,20 +1,21 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/device.model.dart';
 import '../models/log.model.dart';
 import '../services/api_service.dart';
 import '../services/connectivity_service.dart';
-import '../services/secure_storage.dart';
+import '../services/device_cache_manager.dart';
 import '../services/websocket_service.dart';
 
 class HomeViewModel extends ChangeNotifier {
   final ApiService _api = ApiService();
   final WebSocketService _ws = WebSocketService();
   final ConnectivityService _connectivity = ConnectivityService();
-  final SecureStorage _storage = SecureStorage();
+  final DeviceCacheManager _cacheManager = DeviceCacheManager();
 
   Timer? _pollTimer;
+  StreamSubscription<String>? _sessionExpirySub;
+  StreamSubscription<Map<String, dynamic>>? _wsMessageSub;
   final Map<String, DateTime> _recentlyUnlockedUntil = {};
 
   List<DeviceModel> _devices = [];
@@ -54,7 +55,15 @@ class HomeViewModel extends ChangeNotifier {
     _isInitialized = true;
     _isCheckingReachability = true;
 
-    // 1. Immediately load cached devices from storage (strictly offline until server verifies)
+    // Listen for global session expiry events (from 401s or WS 4401 close code)
+    _sessionExpirySub?.cancel();
+    _sessionExpirySub = ApiService.onSessionExpired.stream.listen((_) {
+      _connectionIssue = ConnectionIssue.sessionExpired;
+      _devices = _devices.map((d) => d.copyWith(online: false)).toList();
+      notifyListeners();
+    });
+
+    // 1. Immediately load cached devices from storage
     await _loadCachedDevices();
 
     // 2. Perform fast startup connectivity diagnosis (<1.5s)
@@ -63,19 +72,17 @@ class HomeViewModel extends ChangeNotifier {
     _isCheckingReachability = false;
 
     if (initialIssue != ConnectionIssue.none) {
-      // Server down or no internet: keep devices offline and show status bar
       _devices = _devices.map((d) => d.copyWith(online: false)).toList();
       notifyListeners();
     } else {
-      // Server is online: connect WebSocket and sync fresh cloud devices
       _ws.connect();
-      _ws.stream.listen((message) {
+      _wsMessageSub?.cancel();
+      _wsMessageSub = _ws.stream.listen((message) {
         _handleWebSocketMessage(message);
       });
       await fetchDevices();
     }
 
-    // 3. Setup polling timer with smart attempt backoff
     _setupPollTimer();
   }
 
@@ -83,7 +90,6 @@ class HomeViewModel extends ChangeNotifier {
     _pollTimer?.cancel();
     _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (isOffline) {
-        // When offline, throttle from 4s to ~28s (every 7 ticks) to conserve battery
         _offlineTickCounter++;
         if (_offlineTickCounter < 7) return;
         _offlineTickCounter = 0;
@@ -93,85 +99,73 @@ class HomeViewModel extends ChangeNotifier {
   }
 
   Future<void> _loadCachedDevices() async {
-    try {
-      final cachedJson = await _storage.getCachedDevices();
-      if (cachedJson != null && cachedJson.isNotEmpty) {
-        final decoded = jsonDecode(cachedJson);
-        if (decoded is List && decoded.isNotEmpty) {
-          // Initialize cached devices with online: false until actively verified
-          _devices = decoded.map((j) {
-            final model = DeviceModel.fromJson(j);
-            return model.copyWith(online: false);
-          }).toList();
-          _selectedDeviceId ??= _devices.first.deviceId;
-          notifyListeners();
-          // Preload 7-day cached logs
-          _loadCachedLogs(_selectedDeviceId!);
-        }
-      }
-    } catch (_) {}
+    final cached = await _cacheManager.loadCachedDevices();
+    if (cached.isNotEmpty) {
+      _devices = cached;
+      _selectedDeviceId ??= _devices.first.deviceId;
+      notifyListeners();
+      _loadCachedLogs(_selectedDeviceId!);
+    }
   }
 
   Future<void> _loadCachedLogs(String deviceId) async {
-    try {
-      final cached = await _storage.getCachedLogs(deviceId);
-      if (cached != null && cached.isNotEmpty) {
-        _logs = cached.map((j) => LogModel.fromJson(j)).toList();
-        notifyListeners();
-      }
-    } catch (_) {}
+    final cached = await _cacheManager.loadCachedLogs(deviceId);
+    if (cached.isNotEmpty) {
+      _logs = cached;
+      notifyListeners();
+    }
   }
+
+  bool _matchesDevice(DeviceModel d, String idUpper) =>
+      d.id.trim().toUpperCase() == idUpper || d.deviceId.trim().toUpperCase() == idUpper;
 
   void _handleWebSocketMessage(Map<String, dynamic> message) {
     final type = message['type']?.toString();
-    if (type == 'EMERGENCY_UNLOCK') {
-      final targetDeviceId = message['deviceId']?.toString();
-      if (targetDeviceId != null) {
-        fetchDeviceLogs(targetDeviceId);
+    final targetDeviceId = message['deviceId']?.toString();
+    if (type == 'EMERGENCY_UNLOCK' && targetDeviceId != null) {
+      fetchDeviceLogs(targetDeviceId);
+    }
+
+    const stateEvents = {
+      'DEVICE_STATUS', 'DOOR_OPEN', 'EMERGENCY_UNLOCK',
+      'DELIVERY_SUCCESS', 'UNLOCK_COMMAND', 'DEVICE_ONLINE', 'DEVICE_OFFLINE'
+    };
+    if (type == null || !stateEvents.contains(type)) return;
+
+    if (targetDeviceId == null) {
+      _fetchDevicesSilent();
+      return;
+    }
+
+    final targetUpper = targetDeviceId.trim().toUpperCase();
+    final newDoorState = (type == 'DOOR_OPEN' || type == 'EMERGENCY_UNLOCK' || type == 'UNLOCK_COMMAND')
+        ? 'open'
+        : message['doorState']?.toString();
+
+    // Clean up temporary unlock overrides on door closure
+    if (newDoorState == 'closed') {
+      _recentlyUnlockedUntil.remove(targetUpper);
+      for (final d in _devices) {
+        if (_matchesDevice(d, targetUpper)) {
+          _recentlyUnlockedUntil.remove(d.id.trim().toUpperCase());
+          _recentlyUnlockedUntil.remove(d.deviceId.trim().toUpperCase());
+        }
       }
     }
 
-    if (type == 'DEVICE_STATUS' ||
-        type == 'DOOR_OPEN' ||
-        type == 'EMERGENCY_UNLOCK' ||
-        type == 'DELIVERY_SUCCESS' ||
-        type == 'UNLOCK_COMMAND' ||
-        type == 'DEVICE_ONLINE' ||
-        type == 'DEVICE_OFFLINE') {
-      final targetDeviceId = message['deviceId']?.toString();
-      String? newDoorState = message['doorState']?.toString();
-      if (type == 'DOOR_OPEN' || type == 'EMERGENCY_UNLOCK' || type == 'UNLOCK_COMMAND') {
-        newDoorState ??= 'open';
-      }
-      bool? isOnline = message['online'] as bool?;
-      if (type == 'DEVICE_ONLINE') isOnline = true;
-      if (type == 'DEVICE_OFFLINE') isOnline = false;
+    final isOnline = type == 'DEVICE_ONLINE'
+        ? true
+        : (type == 'DEVICE_OFFLINE' ? false : message['online'] as bool?);
 
-      if (targetDeviceId != null) {
-        final targetUpper = targetDeviceId.trim().toUpperCase();
-        if (newDoorState == 'closed') {
-          _recentlyUnlockedUntil.remove(targetUpper);
-        }
-
-        bool updated = false;
-        for (int i = 0; i < _devices.length; i++) {
-          if (_devices[i].id.trim().toUpperCase() == targetUpper ||
-              _devices[i].deviceId.trim().toUpperCase() == targetUpper) {
-            _devices[i] = _devices[i].copyWith(
-              doorState: newDoorState ?? _devices[i].doorState,
-              online: isOnline ?? _devices[i].online,
-            );
-            updated = true;
-          }
-        }
-        if (updated) {
-          notifyListeners();
-        } else {
-          _fetchDevicesSilent();
-        }
-      } else {
-        _fetchDevicesSilent();
-      }
+    final idx = _devices.indexWhere((d) => _matchesDevice(d, targetUpper));
+    if (idx != -1) {
+      _devices[idx] = _devices[idx].copyWith(
+        doorState: newDoorState ?? _devices[idx].doorState,
+        online: isOnline ?? _devices[idx].online,
+      );
+      notifyListeners();
+    } else {
+      _fetchDevicesSilent();
     }
   }
 
@@ -179,7 +173,7 @@ class HomeViewModel extends ChangeNotifier {
     try {
       final devicesData = await _api.getDevices();
       _failedPollAttempts = 0;
-      if (_connectionIssue != ConnectionIssue.none) {
+      if (_connectionIssue != ConnectionIssue.none && _connectionIssue != ConnectionIssue.sessionExpired) {
         _connectionIssue = ConnectionIssue.none;
         notifyListeners();
       }
@@ -187,27 +181,10 @@ class HomeViewModel extends ChangeNotifier {
           .map((json) => DeviceModel.fromJson(json))
           .toList();
 
-      // Persist to local cache
-      _storage.saveCachedDevices(jsonEncode(devicesData));
-      final updatedDevices = _applyRecentUnlocks(newDevices);
+      _cacheManager.saveCachedDevices(devicesData);
+      final updatedDevices = _cacheManager.applyRecentUnlocks(newDevices, _recentlyUnlockedUntil);
 
-      bool hasChange = false;
-      if (updatedDevices.length != _devices.length) {
-        hasChange = true;
-      } else {
-        for (int i = 0; i < updatedDevices.length; i++) {
-          if (updatedDevices[i].online != _devices[i].online ||
-              updatedDevices[i].doorState != _devices[i].doorState ||
-              updatedDevices[i].name != _devices[i].name ||
-              updatedDevices[i].isOwner != _devices[i].isOwner ||
-              updatedDevices[i].userRole != _devices[i].userRole) {
-            hasChange = true;
-            break;
-          }
-        }
-      }
-
-      if (hasChange) {
+      if (_cacheManager.haveDevicesChanged(_devices, updatedDevices)) {
         _devices = updatedDevices;
         for (final d in _devices) {
           _ws.joinRoom(d.id);
@@ -215,24 +192,18 @@ class HomeViewModel extends ChangeNotifier {
         }
         notifyListeners();
       }
-    } catch (_) {
+    } catch (e) {
+      final errLower = e.toString().toLowerCase();
+      if (errLower.contains('401') || errLower.contains('unauthorized')) {
+        _connectionIssue = ConnectionIssue.sessionExpired;
+        notifyListeners();
+        return;
+      }
       _failedPollAttempts++;
       if (_failedPollAttempts >= maxFailedAttempts) {
         _diagnoseConnectivity();
       }
     }
-  }
-
-  List<DeviceModel> _applyRecentUnlocks(List<DeviceModel> list) {
-    final now = DateTime.now();
-    return list.map((dev) {
-      final until = _recentlyUnlockedUntil[dev.deviceId.trim().toUpperCase()] ??
-          _recentlyUnlockedUntil[dev.id.trim().toUpperCase()];
-      if (until != null && now.isBefore(until)) {
-        return dev.copyWith(doorState: 'open', online: true);
-      }
-      return dev;
-    }).toList();
   }
 
   Future<void> fetchDevices() async {
@@ -243,17 +214,15 @@ class HomeViewModel extends ChangeNotifier {
     try {
       final devicesData = await _api.getDevices();
       _failedPollAttempts = 0;
-      if (_connectionIssue != ConnectionIssue.none) {
+      if (_connectionIssue != ConnectionIssue.none && _connectionIssue != ConnectionIssue.sessionExpired) {
         _connectionIssue = ConnectionIssue.none;
       }
       final rawDevices = devicesData
           .map((json) => DeviceModel.fromJson(json))
           .toList();
 
-      // Persist to local cache so lockers show even offline
-      _storage.saveCachedDevices(jsonEncode(devicesData));
-
-      _devices = _applyRecentUnlocks(rawDevices);
+      _cacheManager.saveCachedDevices(devicesData);
+      _devices = _cacheManager.applyRecentUnlocks(rawDevices, _recentlyUnlockedUntil);
 
       for (final d in _devices) {
         _ws.joinRoom(d.id);
@@ -274,13 +243,19 @@ class HomeViewModel extends ChangeNotifier {
         await _loadCachedDevices();
       }
       _devices = _devices.map((d) => d.copyWith(online: false)).toList();
-      notifyListeners();
-      _diagnoseConnectivity();
+      final errLower = e.toString().toLowerCase();
+      if (errLower.contains('401') || errLower.contains('unauthorized')) {
+        _connectionIssue = ConnectionIssue.sessionExpired;
+        notifyListeners();
+      } else {
+        notifyListeners();
+        _diagnoseConnectivity();
+      }
     }
   }
 
   Future<void> _diagnoseConnectivity() async {
-    if (_isDiagnosing) return;
+    if (_isDiagnosing || _connectionIssue == ConnectionIssue.sessionExpired) return;
     _isDiagnosing = true;
     try {
       final issue = await _connectivity.checkConnectivity();
@@ -297,6 +272,10 @@ class HomeViewModel extends ChangeNotifier {
   }
 
   Future<void> retryConnection() async {
+    if (_connectionIssue == ConnectionIssue.sessionExpired) {
+      notifyListeners();
+      return;
+    }
     _loading = true;
     _error = null;
     notifyListeners();
@@ -326,9 +305,7 @@ class HomeViewModel extends ChangeNotifier {
     _error = null;
     final targetUpper = deviceId.trim().toUpperCase();
 
-    final targetIndex = _devices.indexWhere(
-      (d) => d.id.trim().toUpperCase() == targetUpper || d.deviceId.trim().toUpperCase() == targetUpper,
-    );
+    final targetIndex = _devices.indexWhere((d) => _matchesDevice(d, targetUpper));
     if (targetIndex == -1) {
       throw Exception('Locker not found.');
     }
@@ -349,9 +326,7 @@ class HomeViewModel extends ChangeNotifier {
     } catch (e) {
       _recentlyUnlockedUntil.remove(targetUpper);
       _error = e.toString();
-      final idx = _devices.indexWhere(
-        (d) => d.id.trim().toUpperCase() == targetUpper || d.deviceId.trim().toUpperCase() == targetUpper,
-      );
+      final idx = _devices.indexWhere((d) => _matchesDevice(d, targetUpper));
       if (idx != -1) {
         _devices[idx] = _devices[idx].copyWith(doorState: 'closed');
       }
@@ -366,23 +341,16 @@ class HomeViewModel extends ChangeNotifier {
 
     try {
       final logsData = await _api.getDeviceLogs(deviceId);
-      _logs = logsData
-          .map((json) => LogModel.fromJson(json))
-          .toList();
+      _logs = logsData.map((json) => LogModel.fromJson(json)).toList();
       _ws.joinRoom(deviceId);
       notifyListeners();
 
-      // Persist to local storage with strict 7-day retention filtering
-      await _storage.saveCachedLogs(
-        deviceId,
-        logsData.whereType<Map<String, dynamic>>().toList(),
-      );
+      await _cacheManager.saveCachedLogs(deviceId, logsData);
     } catch (e) {
       _error = e.toString();
-      // Load 7-day cached logs when offline
-      final cached = await _storage.getCachedLogs(deviceId);
-      if (cached != null && cached.isNotEmpty) {
-        _logs = cached.map((json) => LogModel.fromJson(json)).toList();
+      final cached = await _cacheManager.loadCachedLogs(deviceId);
+      if (cached.isNotEmpty) {
+        _logs = cached;
       }
       notifyListeners();
     }
@@ -428,7 +396,7 @@ class HomeViewModel extends ChangeNotifier {
     notifyListeners();
     try {
       await _api.updateDeviceName(deviceId, newName);
-      final index = _devices.indexWhere((d) => d.id == deviceId || d.deviceId == deviceId);
+      final index = _devices.indexWhere((d) => _matchesDevice(d, deviceId.trim().toUpperCase()));
       if (index != -1) {
         _devices[index] = _devices[index].copyWith(name: newName);
       }
@@ -450,6 +418,8 @@ class HomeViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _sessionExpirySub?.cancel();
+    _wsMessageSub?.cancel();
     _pollTimer?.cancel();
     _ws.dispose();
     super.dispose();
