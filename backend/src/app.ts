@@ -28,10 +28,14 @@ const fastify = Fastify({
   disableRequestLogging: true, // We take control of request logging to silence OPTIONS and print clean lines
 });
 
+function sanitizeLogUrl(url: string): string {
+  return url.replace(/([?&](?:token|adminToken)=)[^&]+/gi, "$1[REDACTED]");
+}
+
 // Custom clean request and error hooks
 fastify.addHook("onRequest", async (request) => {
   if (isSilentTerminalPath(request.url, request.method)) return;
-  request.log.info(`--> ${request.method} ${request.url}`);
+  request.log.info(`--> ${request.method} ${sanitizeLogUrl(request.url)}`);
 });
 
 fastify.addHook("onResponse", async (request, reply) => {
@@ -39,7 +43,7 @@ fastify.addHook("onResponse", async (request, reply) => {
   const ms = reply.elapsedTime.toFixed(1);
   const status = reply.statusCode;
   const statusTag = status >= 500 ? "[ERR]" : status >= 400 ? "[WARN]" : "[OK]";
-  request.log.info(`${statusTag} ${request.method} ${request.url} ${status} (${ms}ms)`);
+  request.log.info(`${statusTag} ${request.method} ${sanitizeLogUrl(request.url)} ${status} (${ms}ms)`);
 });
 
 function redactSensitiveData(data: any): any {

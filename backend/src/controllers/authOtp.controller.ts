@@ -149,8 +149,8 @@ export async function registerWithOtp(request: FastifyRequest, reply: FastifyRep
     return reply.status(400).send({ error: "phone, otp, and password are required" });
   }
 
-  if (password.length < 6) {
-    return reply.status(400).send({ error: "Password must be at least 6 characters long" });
+  if (password.length < 6 || password.length > 12) {
+    return reply.status(400).send({ error: "Password must be between 6 and 12 characters long" });
   }
 
   const cleanPhone = smsService.normalizePhone(phone);
@@ -186,11 +186,11 @@ export async function registerWithOtp(request: FastifyRequest, reply: FastifyRep
   }).sort({ createdAt: -1 });
 
   if (otpRecord) {
-    const candidateHash = crypto.createHash("sha256").update(otp.trim()).digest("hex");
-    const isHashMatch = otpRecord.otp === candidateHash;
-    const isLegacyPlainMatch = otpRecord.otp === otp.trim();
+    const candBuf = Buffer.from(crypto.createHash("sha256").update(otp.trim()).digest("hex"), "utf8");
+    const storedBuf = Buffer.from(otpRecord.otp, "utf8");
+    const isHashMatch = candBuf.length === storedBuf.length && crypto.timingSafeEqual(candBuf, storedBuf);
 
-    if (!isHashMatch && !isLegacyPlainMatch && !isDemoBypass) {
+    if (!isHashMatch && !isDemoBypass) {
       otpRecord.attempts += 1;
       if (otpRecord.attempts >= 3) {
         await Otp.deleteOne({ _id: otpRecord._id });

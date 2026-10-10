@@ -55,7 +55,6 @@ export async function verifyPassword(password: string, hash: string): Promise<Pa
     }
   }
 
-  // 3. Ultra-legacy plaintext fallback check
-  const valid = hash === password;
-  return { valid, needsRehash: valid };
+  // 3. Reject any unhashed or unknown password formats
+  return { valid: false, needsRehash: false };
 }

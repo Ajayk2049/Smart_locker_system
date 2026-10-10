@@ -11,7 +11,7 @@ export const checkPhoneSchema = z.object({
 export const registerWithOtpSchema = z.object({
   phone: z.string().min(1, "Mobile number is required"),
   otp: z.string().min(4, "OTP must be at least 4 digits"),
-  password: z.string().min(6, "Password must be at least 6 characters long").max(72, "Password must not exceed 72 characters"),
+  password: z.string().min(6, "Password must be at least 6 characters long").max(12, "Password must not exceed 12 characters"),
   email: z.string().email("Invalid email format").optional(),
   name: z.string().optional(),
   inviteCode: z.string().optional(),
@@ -24,7 +24,7 @@ export const loginSchema = z.object({
   identifier: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().optional(),
-  password: z.string().min(1, "Password is required").max(72, "Password must not exceed 72 characters"),
+  password: z.string().min(1, "Password is required").max(12, "Password must not exceed 12 characters"),
 });
 
 export const refreshTokenSchema = z.object({
@@ -49,5 +49,5 @@ export const updateProfileSchema = z.object({
 export const resetPasswordSchema = z.object({
   phone: z.string().min(1, "Mobile number is required"),
   otp: z.string().min(4, "OTP must be at least 4 digits"),
-  newPassword: z.string().min(6, "New password must be at least 6 characters long").max(72, "Password must not exceed 72 characters"),
+  newPassword: z.string().min(6, "New password must be at least 6 characters long").max(12, "Password must not exceed 12 characters"),
 });

@@ -49,16 +49,29 @@ export default async function deviceRoutes(fastify: FastifyInstance) {
   });
 
   // 2. IoT Hardware endpoints (ESP32 REST/HTTP short-polling & telemetry)
+  // High-capacity rate limit (360 req/min) prevents polling starvation while protecting from DoS floods
+  const iotRateLimit = {
+    config: {
+      rateLimit: {
+        max: 360,
+        timeWindow: "1 minute",
+      },
+    },
+  };
+
   fastify.get("/device/command", {
+    ...iotRateLimit,
     handler: getDeviceCommand,
   });
 
   fastify.post("/device/telemetry", {
+    ...iotRateLimit,
     preHandler: [validateBody(deviceTelemetrySchema)],
     handler: receiveTelemetry,
   });
 
   fastify.post("/device/heartbeat", {
+    ...iotRateLimit,
     preHandler: [validateBody(deviceHeartbeatSchema)],
     handler: receiveHeartbeat,
   });

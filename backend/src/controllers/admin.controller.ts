@@ -19,8 +19,8 @@ export async function createCustomer(request: FastifyRequest, reply: FastifyRepl
     return reply.status(400).send({ error: "Phone number or email is required" });
   }
 
-  if (!password || password.trim().length < 6) {
-    return reply.status(400).send({ error: "Password is required and must be at least 6 characters long" });
+  if (!password || password.trim().length < 6 || password.trim().length > 12) {
+    return reply.status(400).send({ error: "Password is required and must be between 6 and 12 characters long" });
   }
 
   const cleanPhone = phone ? smsService.normalizePhone(phone) : undefined;
