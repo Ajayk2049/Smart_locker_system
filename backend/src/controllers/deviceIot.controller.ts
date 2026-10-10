@@ -59,17 +59,15 @@ export async function testUnlockDevice(request: FastifyRequest, reply: FastifyRe
 function isDeviceAuthorized(device: any, request: FastifyRequest): boolean {
   const providedKey = (request.headers["x-device-key"] as string | undefined)?.trim();
 
-  // In non-production or demo mode, allow dev requests and auto-provision missing device keys
-  if (process.env.NODE_ENV !== "production" || process.env.DEMO_MODE === "true") {
-    if (!device.deviceKey) {
-      device.deviceKey = `sbx_live_${crypto.randomBytes(16).toString("hex")}`;
-      device.save().catch(() => {});
+  // In non-production environments, allow dev requests and auto-provision missing device keys if DEMO_MODE is true
+  if (process.env.NODE_ENV !== "production") {
+    if (process.env.DEMO_MODE === "true" || providedKey === "SIMULATOR_TEST_KEY") {
+      if (!device.deviceKey) {
+        device.deviceKey = `sbx_live_${crypto.randomBytes(16).toString("hex")}`;
+        device.save().catch(() => {});
+      }
+      return true;
     }
-    return true;
-  }
-
-  if (providedKey === "SIMULATOR_TEST_KEY" && process.env.DEMO_MODE === "true") {
-    return true;
   }
 
   if (!device.deviceKey) {
@@ -102,8 +100,9 @@ export async function getDeviceCommand(request: FastifyRequest, reply: FastifyRe
   }
 
   let device = await Device.findOne({ deviceId: targetId });
-  if (!device && (process.env.NODE_ENV !== "production" || process.env.DEMO_MODE === "true")) {
-    device = await Device.findOne({ deviceId: { $regex: new RegExp(`^${targetId}$`, "i") } });
+  if (!device && process.env.NODE_ENV !== "production") {
+    const escaped = targetId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    device = await Device.findOne({ deviceId: { $regex: new RegExp(`^${escaped}$`, "i") } });
   }
 
   if (!device) {
@@ -207,8 +206,9 @@ export async function receiveTelemetry(request: FastifyRequest, reply: FastifyRe
   }
 
   let device = await Device.findOne({ deviceId: targetId });
-  if (!device && (process.env.NODE_ENV !== "production" || process.env.DEMO_MODE === "true")) {
-    device = await Device.findOne({ deviceId: { $regex: new RegExp(`^${targetId}$`, "i") } });
+  if (!device && process.env.NODE_ENV !== "production") {
+    const escaped = targetId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    device = await Device.findOne({ deviceId: { $regex: new RegExp(`^${escaped}$`, "i") } });
   }
 
   if (!device) {
@@ -372,9 +372,13 @@ export async function checkDeviceWatchdog() {
       $or: [{ lastHeartbeat: { $lt: threshold } }, { lastHeartbeat: null }],
     });
 
+    if (staleDevices.length === 0) return;
+
+    // Atomically batch update all stale devices to offline in a single database operation
+    const staleIds = staleDevices.map((d) => d._id);
+    await Device.updateMany({ _id: { $in: staleIds } }, { $set: { online: false } });
+
     for (const dev of staleDevices) {
-      dev.online = false;
-      await dev.save();
 
       const offlineMsg = {
         type: "DEVICE_STATUS",

@@ -1,4 +1,4 @@
-import bcrypt from "bcrypt";
+import { hashPassword } from "../utils/password.js";
 import { FastifyRequest, FastifyReply } from "fastify";
 import { Device } from "../models/Device.model.js";
 import { User } from "../models/User.model.js";
@@ -29,7 +29,7 @@ export async function createCustomer(request: FastifyRequest, reply: FastifyRepl
     if (existing) return reply.status(409).send({ error: "Customer with this phone already exists" });
   }
 
-  const hashedPassword = await bcrypt.hash(password.trim(), 10);
+  const hashedPassword = await hashPassword(password.trim());
 
   const userData: any = {
     name: name?.trim() || "Customer",

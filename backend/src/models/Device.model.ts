@@ -87,5 +87,6 @@ const deviceSchema = new Schema<IDevice>(
 deviceSchema.index({ ownerId: 1 });
 deviceSchema.index({ coOwners: 1 });
 deviceSchema.index({ online: 1 });
+deviceSchema.index({ online: 1, lastHeartbeat: 1 });
 
 export const Device = mongoose.model<IDevice>("Device", deviceSchema);

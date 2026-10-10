@@ -9,6 +9,7 @@ import {
   updateProfile,
   refreshTokenHandler,
   logoutHandler,
+  resetPassword,
 } from "../controllers/auth.controller.js";
 import { authMiddleware } from "../middlewares/auth.middleware.js";
 import { validateBody } from "../middlewares/validate.middleware.js";
@@ -20,6 +21,7 @@ import {
   refreshTokenSchema,
   updateProfileSchema,
   placeOrderSchema,
+  resetPasswordSchema,
 } from "../schemas/auth.schemas.js";
 
 export default async function authRoutes(fastify: FastifyInstance) {
@@ -70,6 +72,13 @@ export default async function authRoutes(fastify: FastifyInstance) {
   // 3c. Logout and Revoke Refresh Token
   fastify.post("/logout", {
     handler: logoutHandler,
+  });
+
+  // 3d. Self-Service Password Reset via Phone OTP (Max 5 / minute in prod)
+  fastify.post("/reset-password", {
+    ...(isProd ? { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } } : {}),
+    preHandler: [validateBody(resetPasswordSchema)],
+    handler: resetPassword,
   });
 
   // 4. Current user session / profile

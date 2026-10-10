@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Box, Lock, Mail, ShieldCheck, AlertCircle, ArrowRight, Loader2, Sun, Moon } from "lucide-react";
+import { getApiUrl } from "@/lib/api";
 
 interface LoginViewProps {
   onLoginSuccess: (user: any, token: string) => void;
@@ -20,12 +21,7 @@ export function LoginView({ onLoginSuccess, theme = "light", onToggleTheme }: Lo
     setError(null);
     setLoading(true);
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-    if (!apiUrl) {
-      setError("Configuration Error: NEXT_PUBLIC_API_URL must be defined in .env");
-      setLoading(false);
-      return;
-    }
+    const apiUrl = getApiUrl();
 
     try {
       const res = await fetch(`${apiUrl}/auth/login`, {

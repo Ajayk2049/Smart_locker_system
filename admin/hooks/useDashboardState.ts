@@ -125,9 +125,11 @@ export function useDashboardState({ onLogout }: UseDashboardStateProps = {}) {
           });
         }
       } catch (err: any) {
-        console.error("Error loading admin data:", err);
         if (!silent) {
+          console.error("Error loading admin data:", err);
           showNotification(err.message || "Could not sync latest requests", true);
+        } else {
+          console.debug("Background sync paused (network/host unreachable):", err?.message || err);
         }
       } finally {
         if (!silent) setIsLoading(false);

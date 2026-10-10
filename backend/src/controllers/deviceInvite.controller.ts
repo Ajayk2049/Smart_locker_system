@@ -105,50 +105,68 @@ export async function joinDevice(request: FastifyRequest, reply: FastifyReply) {
     ? `SBX-${rawAlphanumeric.substring(3)}`
     : `SBX-${rawAlphanumeric}`;
 
-  const device = await Device.findOne({
-    $or: [
-      { inviteCode: cleanCode },
-      { inviteCode: normalizedWithPrefix },
-      { inviteCode: rawAlphanumeric },
-    ],
-    inviteExpiresAt: { $gt: new Date() },
-  });
-
-  if (!device) {
-    return reply.status(404).send({ error: "Invalid or expired invite code. Please ask the owner for a new code." });
-  }
-
-  if (device.ownerId.toString() === user.id) {
-    return reply.status(400).send({ error: "You are already the primary owner of this device" });
-  }
-
-  if (device.coOwners.some((cId) => cId.toString() === user.id)) {
-    return reply.status(409).send({ error: "You are already a co-owner of this device" });
-  }
-
-  const maxAllowed = device.allowedSlots || 2;
-  const currentOccupied = 1 + (device.coOwners ? device.coOwners.length : 0);
-
-  if (currentOccupied >= maxAllowed) {
-    return reply.status(403).send({ error: "This device has already reached its user slot capacity" });
-  }
-
   const userObjectId = new mongoose.Types.ObjectId(user.id);
-  device.coOwners.push(userObjectId);
-  device.inviteCode = undefined;
-  device.inviteExpiresAt = undefined;
-  await device.save();
+  const codeMatches = [cleanCode, normalizedWithPrefix, rawAlphanumeric];
 
-  // Also record on user model
+  // Atomic conditional update:
+  // 1. Matches active, unexpired inviteCode
+  // 2. Prevents primary owner from adding themselves
+  // 3. Prevents duplicate co-owner addition
+  // 4. Guarantees capacity limit atomically: size(coOwners) < allowedSlots - 1
+  const updatedDevice = await Device.findOneAndUpdate(
+    {
+      inviteCode: { $in: codeMatches },
+      inviteExpiresAt: { $gt: new Date() },
+      ownerId: { $ne: userObjectId },
+      coOwners: { $ne: userObjectId },
+      $expr: {
+        $lt: [
+          { $size: { $ifNull: ["$coOwners", []] } },
+          { $subtract: [{ $ifNull: ["$allowedSlots", 2] }, 1] },
+        ],
+      },
+    },
+    {
+      $push: { coOwners: userObjectId },
+      $unset: { inviteCode: "", inviteExpiresAt: "" },
+    },
+    { new: true }
+  );
+
+  if (!updatedDevice) {
+    // Diagnose exact rejection reason for clear client feedback
+    const existingCodeDevice = await Device.findOne({
+      inviteCode: { $in: codeMatches },
+      inviteExpiresAt: { $gt: new Date() },
+    });
+
+    if (!existingCodeDevice) {
+      return reply.status(404).send({ error: "Invalid or expired invite code. Please ask the owner for a new code." });
+    }
+    if (existingCodeDevice.ownerId.toString() === user.id) {
+      return reply.status(400).send({ error: "You are already the primary owner of this device" });
+    }
+    if (existingCodeDevice.coOwners.some((cId) => cId.toString() === user.id)) {
+      return reply.status(409).send({ error: "You are already a co-owner of this device" });
+    }
+    const maxAllowed = existingCodeDevice.allowedSlots || 2;
+    const currentOccupied = 1 + (existingCodeDevice.coOwners ? existingCodeDevice.coOwners.length : 0);
+    if (currentOccupied >= maxAllowed) {
+      return reply.status(403).send({ error: "This device has already reached its user slot capacity" });
+    }
+    return reply.status(400).send({ error: "Could not join device. Please try again." });
+  }
+
+  // Record on user model
   await User.findByIdAndUpdate(user.id, {
-    $addToSet: { assignedDevices: device.deviceId },
+    $addToSet: { assignedDevices: updatedDevice.deviceId },
   });
 
   const dbUser = await User.findById(user.id);
   const joinerName = dbUser?.name || dbUser?.email || "Co-Owner";
 
   await Log.create({
-    deviceId: device._id,
+    deviceId: updatedDevice._id,
     action: "co_owner_added",
     metadata: {
       coOwnerId: user.id,
@@ -160,13 +178,13 @@ export async function joinDevice(request: FastifyRequest, reply: FastifyReply) {
 
   return reply.send({
     success: true,
-    message: `Successfully joined '${device.name}' as a co-owner!`,
+    message: `Successfully joined '${updatedDevice.name}' as a co-owner!`,
     device: {
-      id: device._id,
-      deviceId: device.deviceId,
-      name: device.name,
-      doorState: device.doorState,
-      online: device.online,
+      id: updatedDevice._id,
+      deviceId: updatedDevice.deviceId,
+      name: updatedDevice.name,
+      doorState: updatedDevice.doorState,
+      online: updatedDevice.online,
       isOwner: false,
       userRole: "Co-Owner",
     },

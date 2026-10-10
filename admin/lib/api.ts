@@ -44,11 +44,30 @@ async function getRefreshedToken(apiUrl: string): Promise<string | null> {
   return refreshPromise;
 }
 
+export function getApiUrl(): string {
+  if (typeof window !== "undefined") {
+    const envUrl = process.env.NEXT_PUBLIC_API_URL;
+    // If running in browser and accessed via LAN IP or VPS IP, adapt host dynamically
+    if (envUrl && (envUrl.includes("localhost") || envUrl.includes("127.0.0.1"))) {
+      const currentHost = window.location.hostname;
+      if (currentHost !== "localhost" && currentHost !== "127.0.0.1") {
+        return `${window.location.protocol}//${currentHost}:4300/api`;
+      }
+    }
+    return envUrl || `${window.location.protocol}//${window.location.hostname}:4300/api`;
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:4300/api";
+}
+
+export function getBackendBaseUrl(): string {
+  return getApiUrl().replace(/\/api\/?$/, "");
+}
+
 export async function adminFetch(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4300/api";
+  const apiUrl = getApiUrl();
   let token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
 
   const headers: Record<string, string> = {

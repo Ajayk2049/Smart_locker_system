@@ -1,10 +1,24 @@
+import crypto from "crypto";
 import { FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { User } from "../models/User.model.js";
+import { Otp } from "../models/Otp.model.js";
 import { LockerRequest } from "../models/LockerRequest.model.js";
 import { smsService } from "../services/sms.service.js";
 import { TokenService } from "../services/token.service.js";
 import { verifyPassword, hashPassword } from "../utils/password.js";
+import { config } from "../config.js";
+
+async function syncResolvedUnits(user: any): Promise<number> {
+  const reqs = await LockerRequest.find({ userId: user._id, status: { $ne: "rejected" } }).lean();
+  const total = reqs.reduce((sum: number, r: any) => sum + (r.units || 1), 0);
+  const resolved = Math.max(total, user.assignedDevices?.length || 0, user.units || 1);
+  if (user.units !== resolved) {
+    user.units = resolved;
+    await user.save();
+  }
+  return resolved;
+}
 
 // 1. User Login (with Argon2id & legacy bcrypt auto-upgrade)
 export async function login(request: FastifyRequest, reply: FastifyReply) {
@@ -94,17 +108,7 @@ export async function login(request: FastifyRequest, reply: FastifyReply) {
 
   const refreshToken = await TokenService.createRefreshToken(user._id);
 
-  const userRequests = await LockerRequest.find({ userId: user._id, status: { $ne: "rejected" } });
-  const totalUnits = userRequests.reduce((sum, r) => sum + (r.units || 1), 0);
-  const resolvedUnits = Math.max(
-    totalUnits,
-    user.assignedDevices ? user.assignedDevices.length : 0,
-    user.units || 1
-  );
-  if (user.units !== resolvedUnits) {
-    user.units = resolvedUnits;
-    await user.save();
-  }
+  const resolvedUnits = await syncResolvedUnits(user);
 
   const latestRequest = await LockerRequest.findOne({ userId: user._id }).sort({ createdAt: -1 });
 
@@ -139,17 +143,7 @@ export async function getMe(request: FastifyRequest, reply: FastifyReply) {
     return reply.status(401).send({ error: "User session expired or user not found. Please log in again." });
   }
 
-  const userRequests = await LockerRequest.find({ userId: user._id, status: { $ne: "rejected" } });
-  const totalUnits = userRequests.reduce((sum, r) => sum + (r.units || 1), 0);
-  const resolvedUnits = Math.max(
-    totalUnits,
-    user.assignedDevices ? user.assignedDevices.length : 0,
-    user.units || 1
-  );
-  if (user.units !== resolvedUnits) {
-    user.units = resolvedUnits;
-    await user.save();
-  }
+  const resolvedUnits = await syncResolvedUnits(user);
 
   const latestRequest = await LockerRequest.findOne({ userId: user._id }).sort({ createdAt: -1 });
 
@@ -280,5 +274,75 @@ export async function logoutHandler(request: FastifyRequest, reply: FastifyReply
   return reply.send({
     success: true,
     message: "Logged out successfully",
+  });
+}
+
+// 6. Reset Password via Mobile OTP Verification
+export async function resetPassword(request: FastifyRequest, reply: FastifyReply) {
+  const { phone, otp, newPassword } = request.body as {
+    phone?: string;
+    otp?: string;
+    newPassword?: string;
+  };
+
+  if (!phone || !otp || !newPassword) {
+    return reply.status(400).send({ error: "phone, otp, and newPassword are required" });
+  }
+
+  if (newPassword.length < 6) {
+    return reply.status(400).send({ error: "New password must be at least 6 characters long" });
+  }
+
+  const cleanPhone = smsService.normalizePhone(phone);
+  if (!cleanPhone) {
+    return reply.status(400).send({ error: "Invalid mobile number format" });
+  }
+
+  const user = await User.findOne({ phone: cleanPhone });
+  if (!user) {
+    return reply.status(404).send({ error: "No account found registered with this mobile number" });
+  }
+
+  const isDemoBypass = config.demoMode && (otp.trim() === "123456" || otp.trim() === "000000");
+
+  const otpRecord = await Otp.findOne({
+    phone: cleanPhone,
+    verified: false,
+    expiresAt: { $gt: new Date() },
+  }).sort({ createdAt: -1 });
+
+  if (otpRecord) {
+    const candidateHash = crypto.createHash("sha256").update(otp.trim()).digest("hex");
+    const isHashMatch = otpRecord.otp === candidateHash;
+    const isLegacyPlainMatch = otpRecord.otp === otp.trim();
+
+    if (!isHashMatch && !isLegacyPlainMatch && !isDemoBypass) {
+      otpRecord.attempts += 1;
+      if (otpRecord.attempts >= 3) {
+        await Otp.deleteOne({ _id: otpRecord._id });
+        return reply.status(400).send({ error: "Maximum incorrect OTP attempts exceeded. Please request a new OTP." });
+      }
+      await otpRecord.save();
+      return reply.status(400).send({ error: "Incorrect OTP. Please try again." });
+    }
+
+    otpRecord.verified = true;
+    await Otp.deleteOne({ _id: otpRecord._id });
+  } else if (!isDemoBypass) {
+    return reply.status(400).send({ error: "Invalid or expired OTP. Please request a new one." });
+  }
+
+  // Hash new password using Argon2id
+  user.password = await hashPassword(newPassword);
+  user.failedLoginAttempts = 0;
+  user.lockUntil = undefined;
+  await user.save();
+
+  // Revoke all existing refresh tokens for security
+  await TokenService.revokeAllUserTokens(user._id);
+
+  return reply.send({
+    success: true,
+    message: "Password reset successfully. Please sign in with your new password.",
   });
 }
