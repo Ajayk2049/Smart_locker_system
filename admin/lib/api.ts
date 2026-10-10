@@ -45,18 +45,29 @@ async function getRefreshedToken(apiUrl: string): Promise<string | null> {
 }
 
 export function getApiUrl(): string {
-  if (typeof window !== "undefined") {
-    const envUrl = process.env.NEXT_PUBLIC_API_URL;
-    // If running in browser and accessed via LAN IP or VPS IP, adapt host dynamically
-    if (envUrl && (envUrl.includes("localhost") || envUrl.includes("127.0.0.1"))) {
-      const currentHost = window.location.hostname;
-      if (currentHost !== "localhost" && currentHost !== "127.0.0.1") {
-        return `${window.location.protocol}//${currentHost}:4300/api`;
-      }
-    }
-    return envUrl || `${window.location.protocol}//${window.location.hostname}:4300/api`;
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (!envUrl) {
+    throw new Error("[Configuration Error] NEXT_PUBLIC_API_URL must be defined in environment configuration (.env)");
   }
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:4300/api";
+
+  if (typeof window !== "undefined") {
+    try {
+      const parsed = new URL(envUrl);
+      const currentHost = window.location.hostname;
+      if (
+        (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1") &&
+        currentHost !== "localhost" &&
+        currentHost !== "127.0.0.1"
+      ) {
+        const portPart = parsed.port ? `:${parsed.port}` : "";
+        return `${window.location.protocol}//${currentHost}${portPart}${parsed.pathname}`;
+      }
+    } catch {
+      // If unparseable URL, return raw envUrl
+    }
+  }
+
+  return envUrl;
 }
 
 export function getBackendBaseUrl(): string {
